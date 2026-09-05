@@ -1,17 +1,6 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import {
-  UploadCloud,
-  FileText,
-  Image as ImageIcon,
-  CheckCircle2,
-  X,
-  AlertCircle,
-  Plus,
-  Trash2,
-  FileCheck,
-} from 'lucide-react';
 
 export interface UploadedFileItem {
   fileUrl: string;
@@ -31,7 +20,14 @@ export default function FileUploader({ onFilesChanged }: FileUploaderProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  // Google Drive & Cloud link state
+  const [showDriveModal, setShowDriveModal] = useState(false);
+  const [driveUrl, setDriveUrl] = useState('');
+  const [driveDocName, setDriveDocName] = useState('');
+
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -59,12 +55,60 @@ export default function FileUploader({ onFilesChanged }: FileUploaderProps) {
     }
   };
 
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const pageNum = files.length + 1;
+      const renamedFile = new File([file], `Scanned_Paper_Page_${pageNum}.jpg`, {
+        type: file.type || 'image/jpeg',
+      });
+      processMultipleFiles([renamedFile]);
+    }
+  };
+
+  const handleAddDriveDocument = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!driveUrl.trim()) return;
+
+    const name = driveDocName.trim() || `Cloud_Document_${files.length + 1}.pdf`;
+    const finalName = name.endsWith('.pdf') ? name : `${name}.pdf`;
+
+    const driveItem: UploadedFileItem = {
+      fileUrl: driveUrl.trim(),
+      fileName: finalName,
+      fileType: 'application/pdf',
+      fileSizeBytes: 2 * 1024 * 1024,
+      estimatedPages: 4,
+    };
+
+    const updated = [...files, driveItem];
+    setFiles(updated);
+    const totalPages = updated.reduce((sum, f) => sum + (f.estimatedPages || 1), 0);
+    onFilesChanged(updated, totalPages);
+
+    setDriveUrl('');
+    setDriveDocName('');
+    setShowDriveModal(false);
+  };
+
   const processMultipleFiles = async (newFileList: File[]) => {
     setError(null);
     setUploading(true);
     setUploadProgress(15);
 
-    const validExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
+    const validExtensions = [
+      '.pdf',
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.webp',
+      '.doc',
+      '.docx',
+      '.ppt',
+      '.pptx',
+      '.txt',
+    ];
     const uploadedResults: UploadedFileItem[] = [];
 
     try {
@@ -75,7 +119,9 @@ export default function FileUploader({ onFilesChanged }: FileUploaderProps) {
         );
 
         if (!hasValidExt) {
-          setError(`"${file.name}" is an unsupported format. Please upload PDF, JPG, JPEG, or PNG files.`);
+          setError(
+            `"${file.name}" is an unsupported format. Please upload PDF, Word DOCX, or Image files.`
+          );
           continue;
         }
 
@@ -129,6 +175,7 @@ export default function FileUploader({ onFilesChanged }: FileUploaderProps) {
       setUploading(false);
       setUploadProgress(0);
       if (inputRef.current) inputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
   };
 
@@ -151,119 +198,238 @@ export default function FileUploader({ onFilesChanged }: FileUploaderProps) {
 
   return (
     <div className="w-full space-y-4">
-      {/* Upload Dropzone */}
+      {/* Hidden native inputs */}
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.ppt,.pptx,.txt"
+        onChange={handleChange}
+        className="hidden"
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleCameraCapture}
+        className="hidden"
+      />
+
+      {/* 3 Quick Action Methods Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+        {/* Option 1: Choose Files */}
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="flex flex-col p-3.5 sm:p-4 rounded-xl border border-slate-300 bg-white hover:border-blue-600 hover:bg-blue-50/30 transition text-left shadow-sm group"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-bold text-slate-900 group-hover:text-blue-700">Browse Files</span>
+            <span className="rounded bg-blue-100 text-blue-700 font-bold px-1.5 py-0.2 text-[9px] sm:text-[10px]">Step 1</span>
+          </div>
+          <div className="text-[10px] sm:text-[11px] text-slate-500">PDF, Word DOCX, Slides</div>
+        </button>
+
+        {/* Option 2: Scan with Camera */}
+        <button
+          type="button"
+          onClick={() => cameraInputRef.current?.click()}
+          className="flex flex-col p-3.5 sm:p-4 rounded-xl border border-slate-300 bg-white hover:border-blue-600 hover:bg-blue-50/30 transition text-left shadow-sm group"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-bold text-slate-900 group-hover:text-blue-700">Camera Scan Paper</span>
+            <span className="rounded bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 text-[9px] sm:text-[10px]">Photo</span>
+          </div>
+          <div className="text-[10px] sm:text-[11px] text-slate-500">Snap physical paper / notes</div>
+        </button>
+
+        {/* Option 3: Google Drive / Cloud Link */}
+        <button
+          type="button"
+          onClick={() => setShowDriveModal(true)}
+          className="flex flex-col p-3.5 sm:p-4 rounded-xl border border-slate-300 bg-white hover:border-blue-600 hover:bg-blue-50/30 transition text-left shadow-sm group"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-bold text-slate-900 group-hover:text-blue-700">Google Drive / Link</span>
+            <span className="rounded bg-purple-100 text-purple-800 font-bold px-1.5 py-0.2 text-[9px] sm:text-[10px]">Cloud</span>
+          </div>
+          <div className="text-[10px] sm:text-[11px] text-slate-500">Paste Docs or Drive URL</div>
+        </button>
+      </div>
+
+      {/* Main Drag & Drop / Tap Zone */}
       <div
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
-        className={`relative flex flex-col items-center justify-center rounded-3xl border-2 border-dashed p-7 text-center transition-all cursor-pointer ${
+        className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-5 sm:p-8 text-center transition-all cursor-pointer ${
           dragActive
-            ? 'border-sky-400 bg-sky-500/10 scale-[0.99]'
-            : 'border-white/15 bg-slate-900/60 hover:border-sky-500/40 hover:bg-slate-900/90'
+            ? 'border-blue-600 bg-blue-100/50'
+            : 'border-blue-300 bg-blue-50/30 hover:border-blue-500 hover:bg-blue-50/60'
         }`}
       >
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          accept=".pdf,.jpg,.jpeg,.png,.webp"
-          onChange={handleChange}
-          className="hidden"
-        />
-
-        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-sky-500 to-cyan-400 text-white shadow-lg shadow-sky-500/25">
-          {uploading ? (
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
-          ) : (
-            <UploadCloud className="h-7 w-7" />
-          )}
+        <div className="mb-2 flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-blue-600 text-white font-black text-xs sm:text-sm tracking-wider shadow-sm">
+          {uploading ? '...' : 'DOCS'}
         </div>
 
-        <h4 className="font-heading text-base font-bold text-white mb-1">
-          {uploading ? 'Analyzing Documents & Pages...' : 'Click to Upload Files or Drag & Drop'}
+        <h4 className="font-heading text-xs sm:text-sm font-bold text-slate-900 mb-1">
+          {uploading ? 'Analyzing Documents & Pages...' : 'Tap to Upload or Drag & Drop Documents'}
         </h4>
-        <p className="text-xs text-slate-400 max-w-sm mb-3">
-          Select single or multiple PDF, JPG, JPEG, and PNG files
+        <p className="text-[11px] sm:text-xs text-slate-500 max-w-sm mb-3">
+          Upload PDF files, Word DOCX, handwritten notes, or scan directly with your phone
         </p>
 
         {uploading && (
-          <div className="w-full max-w-xs bg-slate-800 rounded-full h-2 overflow-hidden mb-2">
+          <div className="w-full max-w-xs bg-slate-200 rounded-full h-2 overflow-hidden mb-3">
             <div
-              className="bg-sky-500 h-full rounded-full transition-all duration-300"
+              className="bg-blue-600 h-full rounded-full transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <span className="rounded-lg bg-white/5 border border-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-sky-400">
+        <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
+          <span className="rounded bg-white border border-slate-300 px-2 py-0.5 text-[10px] sm:text-[11px] font-bold text-blue-700">
             PDF
           </span>
-          <span className="rounded-lg bg-white/5 border border-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-400">
-            JPG / JPEG
+          <span className="rounded bg-white border border-slate-300 px-2 py-0.5 text-[10px] sm:text-[11px] font-bold text-emerald-700">
+            Camera Scan
           </span>
-          <span className="rounded-lg bg-white/5 border border-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-400">
-            PNG
+          <span className="rounded bg-white border border-slate-300 px-2 py-0.5 text-[10px] sm:text-[11px] font-bold text-purple-700">
+            Word DOCX
           </span>
-          <span className="text-[11px] text-slate-400">Multi-file supported</span>
+          <span className="rounded bg-white border border-slate-300 px-2 py-0.5 text-[10px] sm:text-[11px] font-bold text-amber-700">
+            Photos JPG/PNG
+          </span>
+          <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium">Multi-file supported</span>
         </div>
 
         {error && (
-          <div className="mt-3 flex items-center gap-1.5 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-xl">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>{error}</span>
+          <div className="mt-3 rounded-lg bg-rose-50 border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700">
+            Notice: {error}
           </div>
         )}
       </div>
 
+      {/* Google Drive Link Modal */}
+      {showDriveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xl">
+            <button
+              onClick={() => setShowDriveModal(false)}
+              className="absolute right-4 top-4 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+            >
+              Close
+            </button>
+
+            <div className="mb-2">
+              <span className="rounded bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 uppercase">
+                Cloud Link
+              </span>
+              <h3 className="font-heading text-sm sm:text-base font-bold text-slate-900 mt-1">
+                Add from Google Drive / Cloud Link
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">
+              Paste the shareable link of your document from Google Drive, Google Docs, or Canva.
+            </p>
+
+            <form onSubmit={handleAddDriveDocument} className="space-y-3 text-xs">
+              <div>
+                <label className="text-slate-700 font-semibold mb-1 block">
+                  Document Link (Google Drive / Docs URL)
+                </label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://drive.google.com/file/d/..."
+                  value={driveUrl}
+                  onChange={(e) => setDriveUrl(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 text-xs font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-700 font-semibold mb-1 block">
+                  Document Title (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Final_Project_Report.pdf"
+                  value={driveDocName}
+                  onChange={(e) => setDriveDocName(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 text-xs"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDriveModal(false)}
+                  className="rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-blue-700 transition shadow-sm"
+                >
+                  Add Document
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Uploaded Documents List */}
       {files.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <span className="font-heading text-sm font-bold text-white">
+              <span className="font-heading text-xs font-bold text-slate-900">
                 Uploaded Documents ({files.length})
               </span>
-              <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400">
+              <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                 {totalPagesCount} Pages Combined
               </span>
             </div>
 
             <button
               onClick={() => inputRef.current?.click()}
-              className="flex items-center gap-1 text-xs font-semibold text-sky-400 hover:text-sky-300 transition"
+              className="text-xs font-bold text-blue-600 hover:text-blue-800 transition"
             >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Add More Files</span>
+              + Add More Files
             </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-2.5">
+          <div className="grid grid-cols-1 gap-2">
             {files.map((file, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-900/80 p-3.5 hover:border-white/20 transition"
+                className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 shadow-sm hover:border-slate-300 transition gap-2"
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-400">
-                    {file.fileName.toLowerCase().endsWith('.pdf') ? (
-                      <FileText className="h-5 w-5" />
-                    ) : (
-                      <ImageIcon className="h-5 w-5" />
-                    )}
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-bold text-[10px]">
+                    {file.fileName.toLowerCase().endsWith('.pdf') ? 'PDF' : 'IMG'}
                   </div>
 
-                  <div className="truncate max-w-[200px] sm:max-w-xs md:max-w-sm">
-                    <h5 className="font-heading text-xs font-bold text-white truncate" title={file.fileName}>
+                  <div className="min-w-0 flex-1">
+                    <h5
+                      className="font-heading text-xs font-bold text-slate-900 truncate"
+                      title={file.fileName}
+                    >
                       {file.fileName}
                     </h5>
-                    <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                    <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-slate-500 mt-0.5">
                       <span>{formatFileSize(file.fileSizeBytes)}</span>
                       <span>•</span>
-                      <span className="font-semibold text-emerald-400">
-                        {file.estimatedPages} {file.estimatedPages === 1 ? 'Page' : 'Pages'}
+                      <span className="font-bold text-emerald-700">
+                        {file.estimatedPages}{' '}
+                        {file.estimatedPages === 1 ? 'Page' : 'Pages'}
                       </span>
                     </div>
                   </div>
@@ -271,10 +437,10 @@ export default function FileUploader({ onFilesChanged }: FileUploaderProps) {
 
                 <button
                   onClick={() => handleRemoveFile(idx)}
-                  className="rounded-lg p-2 text-slate-400 hover:bg-rose-500/20 hover:text-rose-400 transition"
+                  className="rounded-lg px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-800 transition shrink-0"
                   title="Remove file"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  Remove
                 </button>
               </div>
             ))}

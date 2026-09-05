@@ -3,19 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  Printer,
-  QrCode,
-  MapPin,
-  Search,
-  User,
-  LogOut,
-  Shield,
-  Layers,
-  ChevronDown,
-  Navigation,
-  FileText,
-} from 'lucide-react';
 
 interface NavbarProps {
   onOpenQRScanner?: () => void;
@@ -73,42 +60,172 @@ export default function Navbar({
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-[#0b0f19]/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Brand Logo on the Left */}
-        <div className="flex items-center gap-6">
-          <Link href="/" className="group flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-tr from-sky-500 to-cyan-400 text-white shadow-lg shadow-sky-500/25 transition-transform duration-300 group-hover:scale-105">
-              <Printer className="h-6 w-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-heading text-2xl font-black tracking-tight text-white">
-                  Print<span className="text-sky-400">Porter</span>
-                </span>
-                <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-400">
-                  Smart
-                </span>
+    <header className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-sm">
+      <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
+        {/* Main Navbar Row */}
+        <div className="flex h-16 sm:h-18 items-center justify-between gap-2">
+          {/* Brand Logo on the Left */}
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            <Link href="/" className="group flex items-center gap-2 sm:gap-3">
+              <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-blue-600 text-white font-black text-xs sm:text-sm tracking-wider shadow-sm">
+                PP
               </div>
-              <p className="text-[11px] font-medium text-slate-400">
-                On-Demand Print & Cyber Hubs
-              </p>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-heading text-lg sm:text-xl font-black tracking-tight text-slate-900">
+                    Print<span className="text-blue-600">Porter</span>
+                  </span>
+                  <span className="hidden sm:inline-block rounded bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-blue-700">
+                    Direct Print
+                  </span>
+                </div>
+                <p className="hidden sm:block text-[10px] text-slate-500 font-medium">
+                  Fast Cyber Café Network
+                </p>
+              </div>
+            </Link>
+          </div>
+
+          {/* Location Search in the Center (Desktop) */}
+          <div className="hidden md:flex flex-1 max-w-sm lg:max-w-md items-center mx-4">
+            <div className="relative flex w-full items-center rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 shadow-inner focus-within:border-blue-600 focus-within:bg-white focus-within:ring-1 focus-within:ring-blue-600 transition">
+              <button
+                onClick={handleLocateMe}
+                title="Use current GPS location"
+                className="mr-2 flex items-center rounded-lg bg-blue-100 border border-blue-200 px-2 py-0.5 text-xs font-bold text-blue-700 hover:bg-blue-200 transition shrink-0"
+              >
+                <span>{isLocating ? 'Locating...' : 'Near Me'}</span>
+              </button>
+              <input
+                type="text"
+                value={searchQuery || currentLocation}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  if (onLocationChange) onLocationChange(e.target.value);
+                }}
+                placeholder="Search shop, street, college, or city..."
+                className="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 outline-none font-medium"
+              />
             </div>
-          </Link>
+          </div>
+
+          {/* Main Actions & Profile on the Right */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Main Action: Scan QR Button */}
+            <button
+              onClick={onOpenQRScanner}
+              id="navbar-scan-qr-btn"
+              className="flex items-center rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-bold text-white shadow-sm transition active:scale-95"
+            >
+              <span className="hidden sm:inline">Scan Shop QR</span>
+              <span className="sm:hidden">Scan QR</span>
+            </button>
+
+            {/* Quick Orders Link */}
+            <Link
+              href="/orders"
+              className="hidden sm:inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition shadow-sm"
+            >
+              My Orders
+            </Link>
+
+            {/* User Profile / Login Menu */}
+            {currentUser ? (
+              <div className="relative">
+                <button
+                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+                  className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white p-1 sm:p-1.5 pl-2 hover:bg-slate-50 transition shadow-sm"
+                >
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-600 text-white font-bold text-xs">
+                    {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <div className="hidden lg:block text-left">
+                    <div className="text-xs font-bold text-slate-800 truncate max-w-[100px]">
+                      {currentUser.name}
+                    </div>
+                    <div className="text-[10px] font-semibold text-blue-600">
+                      {currentUser.role}
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-500 px-1">Menu</span>
+                </button>
+
+                {isProfileOpen && (
+                  <div className="absolute right-0 mt-2 w-52 sm:w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-xl z-50 animate-in fade-in duration-100">
+                    <div className="border-b border-slate-100 p-2 mb-1">
+                      <p className="text-xs font-bold text-slate-900 truncate">{currentUser.name}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{currentUser.email}</p>
+                      <span className="inline-block mt-1 rounded bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                        {currentUser.role}
+                      </span>
+                    </div>
+
+                    <Link
+                      href="/orders"
+                      onClick={() => setIsProfileOpen(false)}
+                      className="flex items-center rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-blue-600 transition"
+                    >
+                      My Print Orders
+                    </Link>
+
+                    {currentUser.role === 'SHOP_OWNER' && (
+                      <Link
+                        href="/printer/dashboard"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center rounded-lg px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50 transition"
+                      >
+                        Printer Shop Dashboard
+                      </Link>
+                    )}
+
+                    {currentUser.role === 'ADMIN' && (
+                      <Link
+                        href="/khushi-admin"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center rounded-lg px-3 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-50 transition"
+                      >
+                        Admin Control Panel
+                      </Link>
+                    )}
+
+                    <button
+                      onClick={handleLogout}
+                      className="flex w-full items-center rounded-lg px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition border-t border-slate-100 mt-1"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Link
+                  href="/login"
+                  className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition shadow-sm"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/register"
+                  className="hidden sm:inline-flex rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-blue-700 transition shadow-sm"
+                >
+                  Register
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Location Search / Current Location in the Center */}
-        <div className="hidden flex-1 max-w-md items-center mx-6 md:flex">
-          <div className="relative flex w-full items-center rounded-2xl border border-white/10 bg-slate-900/90 px-3 py-2 shadow-inner focus-within:border-sky-500/50">
+        {/* Mobile Search Bar Row (Visible on phones below md breakpoint) */}
+        <div className="md:hidden pb-2.5 pt-0.5">
+          <div className="relative flex w-full items-center rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 shadow-inner focus-within:border-blue-600 focus-within:bg-white transition">
             <button
               onClick={handleLocateMe}
               title="Use current GPS location"
-              className="mr-2 flex items-center gap-1.5 rounded-lg bg-sky-500/15 px-2.5 py-1 text-xs font-semibold text-sky-400 hover:bg-sky-500/25 transition"
+              className="mr-2 flex items-center rounded-md bg-blue-100 border border-blue-200 px-2 py-0.5 text-[11px] font-bold text-blue-700 shrink-0"
             >
-              <Navigation className={`h-3.5 w-3.5 ${isLocating ? 'animate-spin' : ''}`} />
-              <span className="truncate max-w-[100px]">{isLocating ? 'Locating...' : 'Nearby'}</span>
+              <span>{isLocating ? '...' : 'GPS'}</span>
             </button>
-            <MapPin className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
             <input
               type="text"
               value={searchQuery || currentLocation}
@@ -116,130 +233,10 @@ export default function Navbar({
                 setSearchQuery(e.target.value);
                 if (onLocationChange) onLocationChange(e.target.value);
               }}
-              placeholder="Search shop, street, college, or city..."
-              className="w-full bg-transparent text-sm text-slate-200 placeholder-slate-500 outline-none"
+              placeholder="Search shop, street, or college..."
+              className="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 outline-none font-medium"
             />
           </div>
-        </div>
-
-        {/* Main Actions & Profile on the Right */}
-        <div className="flex items-center gap-3">
-          {/* Main Action: Scan QR Button */}
-          <button
-            onClick={onOpenQRScanner}
-            id="navbar-scan-qr-btn"
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 via-cyan-500 to-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/30 transition-all hover:brightness-110 hover:shadow-sky-500/50 active:scale-95"
-          >
-            <QrCode className="h-4 w-4" />
-            <span className="hidden sm:inline">Scan Shop QR</span>
-            <span className="sm:hidden">Scan</span>
-          </button>
-
-          {/* Quick Orders Link */}
-          <Link
-            href="/orders"
-            className="hidden sm:flex items-center gap-1.5 rounded-xl border border-white/10 bg-slate-800/80 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition"
-          >
-            <FileText className="h-3.5 w-3.5 text-sky-400" />
-            <span>My Orders</span>
-          </Link>
-
-          {/* User Profile / Login Menu */}
-          {currentUser ? (
-            <div className="relative">
-              <button
-                onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/80 p-1.5 pl-2 hover:bg-slate-800 transition"
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800 text-sky-400 overflow-hidden font-bold text-xs">
-                  {currentUser.avatarUrl ? (
-                    <img
-                      src={currentUser.avatarUrl}
-                      alt={currentUser.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    currentUser.name.charAt(0)
-                  )}
-                </div>
-                <div className="hidden text-left lg:block">
-                  <div className="text-xs font-bold text-slate-200 truncate max-w-[100px]">
-                    {currentUser.name}
-                  </div>
-                  <div className="text-[10px] font-semibold text-sky-400">
-                    {currentUser.role}
-                  </div>
-                </div>
-                <ChevronDown className="h-3.5 w-3.5 text-slate-400 pr-0.5" />
-              </button>
-
-              {isProfileOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-white/10 bg-slate-900 p-2 shadow-2xl backdrop-blur-xl">
-                  <div className="border-b border-white/5 p-2 mb-1">
-                    <p className="text-xs font-bold text-white">{currentUser.name}</p>
-                    <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
-                    <span className="inline-block mt-1 rounded bg-sky-500/20 px-2 py-0.5 text-[10px] font-bold text-sky-400">
-                      {currentUser.role}
-                    </span>
-                  </div>
-
-                  <Link
-                    href="/orders"
-                    onClick={() => setIsProfileOpen(false)}
-                    className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-300 hover:bg-white/5 hover:text-white"
-                  >
-                    <FileText className="h-3.5 w-3.5 text-sky-400" />
-                    My Print Orders
-                  </Link>
-
-                  {currentUser.role === 'SHOP_OWNER' && (
-                    <Link
-                      href="/printer/dashboard"
-                      onClick={() => setIsProfileOpen(false)}
-                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-emerald-400 hover:bg-emerald-500/10"
-                    >
-                      <Printer className="h-3.5 w-3.5" />
-                      Printer Shop Dashboard
-                    </Link>
-                  )}
-
-                  {currentUser.role === 'ADMIN' && (
-                    <Link
-                      href="/khushi-admin"
-                      onClick={() => setIsProfileOpen(false)}
-                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-purple-400 hover:bg-purple-500/10"
-                    >
-                      <Shield className="h-3.5 w-3.5" />
-                      Admin Control Panel
-                    </Link>
-                  )}
-
-                  <button
-                    onClick={handleLogout}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-rose-400 hover:bg-rose-500/10"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    Sign Out
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Link
-                href="/login"
-                className="rounded-xl border border-white/10 bg-slate-900/80 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-white transition"
-              >
-                Sign In
-              </Link>
-              <Link
-                href="/register"
-                className="hidden sm:inline-flex rounded-xl bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20 transition"
-              >
-                Register
-              </Link>
-            </div>
-          )}
         </div>
       </div>
     </header>

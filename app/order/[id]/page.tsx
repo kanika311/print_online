@@ -3,17 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import {
-  ChevronLeft,
-  Printer,
-  FileText,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Share2,
-  Download,
-  Home,
-} from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import LiveQueueTracker from '@/components/LiveQueueTracker';
 
@@ -47,24 +36,22 @@ export default function OrderLiveTrackingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0e17] flex flex-col items-center justify-center text-slate-400">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-sky-500 border-t-transparent mb-4" />
-        <p className="text-sm">Connecting to live print queue...</p>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-500">
+        <p className="text-sm font-semibold">Connecting to live print queue...</p>
       </div>
     );
   }
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-[#0a0e17] flex flex-col items-center justify-center text-center p-4">
-        <AlertCircle className="h-12 w-12 text-rose-400 mb-3" />
-        <h2 className="font-heading text-xl font-bold text-white mb-2">Order Not Found</h2>
-        <p className="text-xs text-slate-400 max-w-sm mb-6">
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-center p-4">
+        <h2 className="font-heading text-xl font-bold text-slate-900 mb-2">Order Not Found</h2>
+        <p className="text-xs text-slate-500 max-w-sm mb-6">
           The requested print order could not be found or has expired.
         </p>
         <Link
           href="/"
-          className="rounded-xl bg-sky-500 px-4 py-2 text-xs font-bold text-white"
+          className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-sm"
         >
           Return to Home
         </Link>
@@ -73,7 +60,7 @@ export default function OrderLiveTrackingPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0a0e17]">
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
       <Navbar />
 
       <main className="flex-1 pb-20">
@@ -82,19 +69,17 @@ export default function OrderLiveTrackingPage() {
           <div className="flex items-center justify-between mb-6">
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition"
+              className="inline-flex items-center text-xs font-bold text-blue-600 hover:text-blue-800 transition"
             >
-              <ChevronLeft className="h-4 w-4" />
-              <span>Back to Home</span>
+              &larr; Back to Home
             </Link>
 
             <div className="flex items-center gap-2">
               <Link
                 href="/orders"
-                className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white transition"
+                className="flex items-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition shadow-sm"
               >
-                <FileText className="h-3.5 w-3.5 text-sky-400" />
-                <span>All Orders</span>
+                All Orders
               </Link>
             </div>
           </div>

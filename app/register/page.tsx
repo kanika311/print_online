@@ -3,16 +3,6 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  Printer,
-  Lock,
-  Mail,
-  User,
-  Phone,
-  ArrowRight,
-  AlertCircle,
-  Sparkles,
-} from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -49,123 +39,101 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-[#0a0e17] px-4 py-12 relative overflow-hidden">
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
-
+    <div className="min-h-screen flex flex-col justify-center items-center bg-slate-50 px-4 py-12 text-slate-900">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-sky-500 to-cyan-400 text-white shadow-lg shadow-sky-500/30">
-              <Printer className="h-6 w-6" />
+        <div className="text-center mb-6">
+          <Link href="/" className="inline-flex items-center gap-2.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-sm tracking-wider">
+              PP
             </div>
-            <span className="font-heading text-3xl font-black text-white tracking-tight">
-              Print<span className="text-sky-400">Porter</span>
+            <span className="font-heading text-2xl font-black text-slate-900 tracking-tight">
+              Print<span className="text-blue-600">Porter</span>
             </span>
           </Link>
-          <h2 className="mt-4 font-heading text-xl font-bold text-white">
+          <h2 className="mt-3 font-heading text-lg font-bold text-slate-900">
             Create Customer Account
           </h2>
-          <p className="text-xs text-slate-400">
-            Get ₹100 instant welcome printing credit
+          <p className="text-xs text-slate-500">
+            Sign up for order tracking and instant checkout
           </p>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-slate-900/90 p-6 md:p-8 backdrop-blur-xl shadow-2xl">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 md:p-7 shadow-md">
           {error && (
-            <div className="mb-4 flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-400">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{error}</span>
+            <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 font-semibold">
+              Notice: {error}
             </div>
           )}
 
-          <form onSubmit={handleRegister} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-3.5">
             <div>
-              <label className="text-xs font-semibold text-slate-300 mb-1.5 block">
+              <label className="text-xs font-semibold text-slate-700 mb-1 block">
                 Full Name
               </label>
-              <div className="relative">
-                <User className="absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Priya Singh"
-                  className="w-full rounded-xl border border-white/10 bg-slate-800/80 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 outline-none focus:border-sky-500"
-                />
-              </div>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Priya Singh"
+                className="w-full rounded-xl border border-slate-300 bg-white py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-blue-600 shadow-sm"
+              />
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-300 mb-1.5 block">
+              <label className="text-xs font-semibold text-slate-700 mb-1 block">
                 Email Address
               </label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  className="w-full rounded-xl border border-white/10 bg-slate-800/80 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 outline-none focus:border-sky-500"
-                />
-              </div>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@example.com"
+                className="w-full rounded-xl border border-slate-300 bg-white py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-blue-600 shadow-sm"
+              />
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-300 mb-1.5 block">
+              <label className="text-xs font-semibold text-slate-700 mb-1 block">
                 Phone Number (for SMS & Queue Alerts)
               </label>
-              <div className="relative">
-                <Phone className="absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
-                <input
-                  type="tel"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+91 98765 43210"
-                  className="w-full rounded-xl border border-white/10 bg-slate-800/80 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 outline-none focus:border-sky-500"
-                />
-              </div>
+              <input
+                type="tel"
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+                className="w-full rounded-xl border border-slate-300 bg-white py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-blue-600 shadow-sm"
+              />
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-300 mb-1.5 block">
+              <label className="text-xs font-semibold text-slate-700 mb-1 block">
                 Password
               </label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 6 characters"
-                  className="w-full rounded-xl border border-white/10 bg-slate-800/80 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 outline-none focus:border-sky-500"
-                />
-              </div>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="At least 6 characters"
+                className="w-full rounded-xl border border-slate-300 bg-white py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-blue-600 shadow-sm"
+              />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/25 hover:brightness-110 active:scale-95 transition disabled:opacity-50"
+              className="mt-5 w-full rounded-xl bg-blue-600 hover:bg-blue-700 py-2.5 text-xs font-bold text-white shadow-sm transition active:scale-95 disabled:opacity-50"
             >
-              {loading ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : (
-                <>
-                  <span>Create Account</span>
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
+              {loading ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
 
-          <div className="mt-6 text-center text-xs text-slate-400">
+          <div className="mt-5 text-center text-xs text-slate-500">
             Already have an account?{' '}
-            <Link href="/login" className="font-bold text-sky-400 hover:underline">
+            <Link href="/login" className="font-bold text-blue-600 hover:underline">
               Sign In
             </Link>
           </div>

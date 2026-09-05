@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Download, Printer, Share2, Check, QrCode } from 'lucide-react';
 
 interface QRCodeCardProps {
   shopId: string;
@@ -36,46 +35,42 @@ export default function QRCodeCard({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
-    <div className="rounded-3xl border border-white/10 bg-slate-900/90 p-6 backdrop-blur-xl shadow-2xl max-w-sm mx-auto text-center">
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-md max-w-sm mx-auto text-center">
       {/* Brand Badge */}
-      <div className="flex items-center justify-center gap-2 mb-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500 text-white">
-          <Printer className="h-4 w-4" />
+      <div className="flex items-center justify-center gap-2 mb-3">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs">
+          PP
         </div>
-        <span className="font-heading text-lg font-bold text-white tracking-tight">
-          Print<span className="text-sky-400">Porter</span>
+        <span className="font-heading text-base font-bold text-slate-900 tracking-tight">
+          Print<span className="text-blue-600">Porter</span>
         </span>
       </div>
 
-      <h3 className="font-heading text-xl font-extrabold text-white mb-1">
+      <h3 className="font-heading text-lg font-bold text-slate-900 mb-1">
         {shopName}
       </h3>
       {address && (
-        <p className="text-xs text-slate-400 mb-4 line-clamp-2 px-2">
+        <p className="text-xs text-slate-500 mb-3 line-clamp-2 px-2">
           {address}
         </p>
       )}
 
       {/* QR Code Container with sleek white placard styling */}
-      <div className="relative mx-auto my-4 w-60 rounded-2xl bg-white p-4 shadow-xl ring-4 ring-sky-500/20">
+      <div className="relative mx-auto my-3 w-56 rounded-xl bg-white p-3 border-2 border-slate-200 shadow-sm">
         {qrDataUrl ? (
           <img
             src={qrDataUrl}
             alt={`${shopName} QR Code`}
-            className="h-52 w-52 mx-auto rounded-lg"
+            className="h-48 w-48 mx-auto object-contain"
           />
         ) : (
-          <div className="flex h-52 w-52 items-center justify-center text-slate-400">
-            <QrCode className="h-16 w-16 animate-pulse" />
+          <div className="flex h-48 w-48 items-center justify-center text-slate-400 font-bold text-xs">
+            Generating QR Code...
           </div>
         )}
         <div className="mt-2 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-800">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
             Scan with phone camera
           </p>
           <p className="text-[9px] text-slate-500 font-medium">
@@ -85,21 +80,19 @@ export default function QRCodeCard({
       </div>
 
       {/* Action Buttons */}
-      <div className="mt-6 grid grid-cols-2 gap-2.5">
+      <div className="mt-4 grid grid-cols-2 gap-2">
         <button
           onClick={handleDownload}
-          className="flex items-center justify-center gap-1.5 rounded-xl bg-sky-500 px-3 py-2.5 text-xs font-bold text-white hover:bg-sky-400 transition shadow-lg shadow-sky-500/25"
+          className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 transition shadow-sm"
         >
-          <Download className="h-3.5 w-3.5" />
           Download PNG
         </button>
 
         <button
           onClick={handleCopyLink}
-          className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-slate-800 px-3 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 transition"
+          className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm"
         >
-          {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Share2 className="h-3.5 w-3.5" />}
-          {copied ? 'Copied!' : 'Copy Link'}
+          {copied ? 'Copied URL!' : 'Copy Link'}
         </button>
       </div>
     </div>

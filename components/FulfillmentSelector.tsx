@@ -1,16 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Store,
-  Bike,
-  MapPin,
-  Clock,
-  CheckCircle2,
-  Phone,
-  ShieldCheck,
-  ArrowRight,
-} from 'lucide-react';
 
 interface FulfillmentSelectorProps {
   shopName: string;
@@ -55,12 +45,12 @@ export default function FulfillmentSelector({
   };
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-slate-900/90 p-6 backdrop-blur-xl shadow-2xl space-y-6">
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-md space-y-6">
       <div className="text-center max-w-md mx-auto">
-        <h3 className="font-heading text-xl font-extrabold text-white">
+        <h3 className="font-heading text-lg font-extrabold text-slate-900">
           Choose How to Receive Your Prints
         </h3>
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-xs text-slate-500 mt-1">
           Collect in person at the shop counter or get Porter courier bike delivery
         </p>
       </div>
@@ -70,32 +60,32 @@ export default function FulfillmentSelector({
         {/* Choice 1: Self Pickup */}
         <div
           onClick={() => setSelectedType('PICKUP')}
-          className={`relative rounded-3xl border p-5 cursor-pointer transition-all ${
+          className={`relative rounded-xl border p-5 cursor-pointer transition-all shadow-sm ${
             selectedType === 'PICKUP'
-              ? 'border-sky-400 bg-sky-500/15 ring-2 ring-sky-500/30 shadow-lg shadow-sky-500/10'
-              : 'border-white/10 bg-slate-800/60 hover:border-white/20'
+              ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-600'
+              : 'border-slate-200 bg-white hover:border-slate-300'
           }`}
         >
           <div className="flex items-start justify-between mb-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/20 text-sky-400">
-              <Store className="h-6 w-6" />
-            </div>
+            <span className="rounded bg-blue-100 text-blue-800 font-bold px-2 py-0.5 text-xs">
+              SELF PICKUP
+            </span>
             {selectedType === 'PICKUP' && (
-              <CheckCircle2 className="h-5 w-5 text-sky-400" />
+              <span className="text-[10px] font-bold text-blue-700 uppercase">Selected</span>
             )}
           </div>
 
-          <h4 className="font-heading text-sm font-bold text-white mb-1">
+          <h4 className="font-heading text-sm font-bold text-slate-900 mb-1">
             Self Pickup at Cyber Café
           </h4>
-          <p className="text-xs text-slate-400 mb-3">
+          <p className="text-xs text-slate-500 mb-3">
             Visit the shop counter to collect your documents when ready.
           </p>
 
-          <div className="rounded-2xl border border-white/5 bg-slate-900/80 p-3 text-[11px] space-y-1">
-            <div className="text-slate-300 font-semibold">{shopName}</div>
-            <div className="text-slate-400 truncate">{shopAddress}</div>
-            <div className="text-emerald-400 font-bold mt-1">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-[11px] space-y-1">
+            <div className="text-slate-800 font-bold">{shopName}</div>
+            <div className="text-slate-500 truncate">{shopAddress}</div>
+            <div className="text-emerald-700 font-bold mt-1">
               Pickup Fee: FREE (₹0.00)
             </div>
           </div>
@@ -104,43 +94,43 @@ export default function FulfillmentSelector({
         {/* Choice 2: Porter Delivery */}
         <div
           onClick={() => setSelectedType('DELIVERY')}
-          className={`relative rounded-3xl border p-5 cursor-pointer transition-all ${
+          className={`relative rounded-xl border p-5 cursor-pointer transition-all shadow-sm ${
             selectedType === 'DELIVERY'
-              ? 'border-emerald-400 bg-emerald-500/15 ring-2 ring-emerald-500/30 shadow-lg shadow-emerald-500/10'
-              : 'border-white/10 bg-slate-800/60 hover:border-white/20'
+              ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-600'
+              : 'border-slate-200 bg-white hover:border-slate-300'
           }`}
         >
           <div className="flex items-start justify-between mb-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400">
-              <Bike className="h-6 w-6" />
-            </div>
+            <span className="rounded bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 text-xs">
+              PORTER BIKE
+            </span>
             {selectedType === 'DELIVERY' && (
-              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+              <span className="text-[10px] font-bold text-blue-700 uppercase">Selected</span>
             )}
           </div>
 
-          <h4 className="font-heading text-sm font-bold text-white mb-1">
+          <h4 className="font-heading text-sm font-bold text-slate-900 mb-1">
             Porter Courier Delivery
           </h4>
-          <p className="text-xs text-slate-400 mb-3">
+          <p className="text-xs text-slate-500 mb-3">
             Direct doorstep dispatch via third-party Porter bike courier.
           </p>
 
-          <div className="rounded-2xl border border-white/5 bg-slate-900/80 p-3 text-[11px] space-y-1">
-            <div className="text-slate-300 font-semibold">Speed: ~25 mins from ready</div>
-            <div className="text-emerald-400 font-bold">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-[11px] space-y-1">
+            <div className="text-slate-800 font-bold">Speed: ~25 mins from ready</div>
+            <div className="text-emerald-700 font-bold">
               Delivery Charge: ₹{deliveryFee.toFixed(2)}
             </div>
-            <div className="text-slate-400">Live courier tracking link provided</div>
+            <div className="text-slate-500">Live courier tracking link provided</div>
           </div>
         </div>
       </div>
 
       {/* Address Form if Delivery selected */}
       {selectedType === 'DELIVERY' && (
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/10 p-4 space-y-3 animate-in fade-in">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
           <div>
-            <label className="text-xs font-bold text-emerald-300 mb-1 block">
+            <label className="text-xs font-bold text-slate-800 mb-1 block">
               Doorstep Delivery Address *
             </label>
             <input
@@ -152,19 +142,19 @@ export default function FulfillmentSelector({
                 setAddressError(false);
               }}
               placeholder="e.g. Flat 302, Green Valley Apts, Sector 18, Noida"
-              className={`w-full rounded-xl border bg-slate-800 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none ${
-                addressError ? 'border-rose-500' : 'border-white/10 focus:border-emerald-500'
+              className={`w-full rounded-xl border bg-white px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none ${
+                addressError ? 'border-rose-500' : 'border-slate-300 focus:border-blue-600'
               }`}
             />
             {addressError && (
-              <span className="text-[10px] text-rose-400 mt-1 block">
+              <span className="text-[10px] text-rose-600 mt-1 block font-semibold">
                 Please provide your full delivery address
               </span>
             )}
           </div>
 
           <div>
-            <label className="text-xs font-bold text-emerald-300 mb-1 block">
+            <label className="text-xs font-bold text-slate-800 mb-1 block">
               Recipient Phone Number (For Porter Driver)
             </label>
             <input
@@ -172,20 +162,20 @@ export default function FulfillmentSelector({
               value={recipientPhone}
               onChange={(e) => setRecipientPhone(e.target.value)}
               placeholder="+91 98765 43210"
-              className="w-full rounded-xl border border-white/10 bg-slate-800 px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-blue-600"
             />
           </div>
 
-          <div className="rounded-xl bg-slate-900/80 p-3 text-xs space-y-1 text-slate-300 border border-white/5">
+          <div className="rounded-lg bg-white p-3 text-xs space-y-1 text-slate-600 border border-slate-200">
             <div className="flex justify-between">
               <span>Printing Charge:</span>
-              <span className="font-bold text-white">₹{printingSubtotal.toFixed(2)}</span>
+              <span className="font-bold text-slate-900">₹{printingSubtotal.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-emerald-400">
+            <div className="flex justify-between text-slate-700">
               <span>Porter Bike Delivery:</span>
               <span className="font-bold">+₹{deliveryFee.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between border-t border-white/10 pt-1 font-heading text-sm font-black text-white">
+            <div className="flex justify-between border-t border-slate-200 pt-1 font-heading text-sm font-black text-slate-900">
               <span>Total Payable:</span>
               <span>₹{totalWithDelivery.toFixed(2)}</span>
             </div>
@@ -197,14 +187,13 @@ export default function FulfillmentSelector({
       <button
         type="button"
         onClick={handleConfirm}
-        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 via-cyan-400 to-blue-600 py-3.5 text-sm font-extrabold text-white shadow-xl shadow-sky-500/25 hover:brightness-110 active:scale-95 transition"
+        className="w-full flex items-center justify-center rounded-xl bg-blue-600 hover:bg-blue-700 py-3.5 text-xs font-bold text-white shadow-sm transition active:scale-95"
       >
         <span>
           {selectedType === 'PICKUP'
             ? 'Confirm Self Pickup'
             : `Confirm & Order Porter Delivery (₹${totalWithDelivery.toFixed(2)})`}
         </span>
-        <ArrowRight className="h-4 w-4" />
       </button>
     </div>
   );

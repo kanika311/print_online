@@ -3,26 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import {
-  Printer,
-  MapPin,
-  Clock,
-  Star,
-  ChevronLeft,
-  UploadCloud,
-  CheckCircle2,
-  AlertCircle,
-  QrCode,
-  ArrowRight,
-  CreditCard,
-  Banknote,
-  Bike,
-  Store,
-  ChevronRight,
-  Copy,
-  Check,
-  ExternalLink,
-} from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import FileUploader, { UploadedFileItem } from '@/components/FileUploader';
 import PrintConfigurator, { PrintSettings } from '@/components/PrintConfigurator';
@@ -182,7 +162,6 @@ export default function ShopDetailPage() {
       }
 
       setCreatedOrder(data.order);
-      // Move to Fulfillment Selection Step
       setCurrentStep(5);
     } catch (err: any) {
       setError(err.message || 'Payment submission failed');
@@ -217,7 +196,6 @@ export default function ShopDetailPage() {
         throw new Error(d.error || 'Failed to update delivery choice');
       }
 
-      // Order fully completed! Redirect to Live Order Tracking Screen
       router.push(`/order/${createdOrder._id}`);
     } catch (e: any) {
       setError(e.message || 'Failed to set fulfillment');
@@ -227,19 +205,17 @@ export default function ShopDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0e17] flex flex-col items-center justify-center text-slate-400">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-sky-500 border-t-transparent mb-4" />
-        <p className="text-sm">Connecting to Cyber Café systems...</p>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-500">
+        <p className="text-sm font-semibold">Connecting to Cyber Café systems...</p>
       </div>
     );
   }
 
   if (!shop) {
     return (
-      <div className="min-h-screen bg-[#0a0e17] flex flex-col items-center justify-center text-center p-4">
-        <AlertCircle className="h-12 w-12 text-rose-400 mb-3" />
-        <h2 className="font-heading text-xl font-bold text-white mb-2">Shop Not Found</h2>
-        <Link href="/" className="rounded-xl bg-sky-500 px-4 py-2 text-xs font-bold text-white">
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-center p-4">
+        <h2 className="font-heading text-xl font-bold text-slate-900 mb-2">Shop Not Found</h2>
+        <Link href="/" className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-sm">
           Return to Nearby Shops
         </Link>
       </div>
@@ -250,63 +226,68 @@ export default function ShopDetailPage() {
     (p) => (p._id || p.id) === selectedPrinterId
   );
 
+  const stepTitles = [
+    'Upload Documents',
+    'Configure Specs',
+    'Select Machine',
+    'Review & Pay',
+    'Pickup / Delivery',
+  ];
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#0a0e17]">
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
       <Navbar onOpenQRScanner={() => setIsQRScannerOpen(true)} />
 
-      <main className="flex-1 pb-24">
+      <main className="flex-1 pb-20">
         {/* Shop Details Header Banner */}
-        <div className="border-b border-white/10 bg-slate-900/60 backdrop-blur-xl">
-          <div className="mx-auto max-w-4xl px-4 sm:px-6 py-5">
+        <div className="border-b border-slate-200 bg-white shadow-sm">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6 py-4 sm:py-5">
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white mb-3 transition"
+              className="inline-flex items-center text-xs font-bold text-blue-600 hover:text-blue-800 mb-2.5 transition"
             >
-              <ChevronLeft className="h-4 w-4" />
-              <span>Back to Nearby Hubs</span>
+              &larr; Back to Nearby Hubs
             </Link>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
               <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="font-heading text-xl sm:text-2xl font-black text-white">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <h1 className="font-heading text-lg sm:text-2xl font-black text-slate-900">
                     {shop.name}
                   </h1>
                   {shop.isOnline ? (
-                    <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                      ● Active Counter
+                    <span className="rounded bg-emerald-50 border border-emerald-300 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-emerald-700 shrink-0">
+                      Active Counter
                     </span>
                   ) : (
-                    <span className="rounded-full bg-slate-800 border border-white/10 px-2 py-0.5 text-[10px] font-bold text-slate-400">
+                    <span className="rounded bg-slate-100 border border-slate-300 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-slate-500 shrink-0">
                       Closed
                     </span>
                   )}
                 </div>
 
-                <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-1">
-                  <MapPin className="h-3.5 w-3.5 text-sky-400 shrink-0" />
-                  <span>{shop.address}</span>
+                <p className="text-xs text-slate-500 mt-0.5 sm:mt-1">
+                  {shop.address}
                 </p>
 
-                <div className="flex items-center gap-3 mt-2 text-xs">
-                  <span className="flex items-center text-amber-400 font-bold">
-                    <Star className="h-3 w-3 fill-amber-400 mr-1" />
-                    {shop.rating || '4.9'}
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1.5 sm:mt-2 text-xs">
+                  <span className="text-amber-600 font-bold">
+                    ★ {shop.rating || '4.9'}
                   </span>
-                  <span className="text-slate-600">•</span>
-                  <span className="text-slate-300">
-                    Queue: <strong>{shop.currentQueueCount || 0} jobs</strong>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-slate-600 font-medium">
+                    Queue: <strong className="text-slate-900">{shop.currentQueueCount || 0} jobs</strong>
                   </span>
-                  <span className="text-slate-600">•</span>
-                  <span className="text-emerald-400 font-semibold">
+                  <span className="text-slate-300">•</span>
+                  <span className="text-emerald-700 font-semibold">
                     Est. Wait: ~{shop.estimatedWaitMinutes || 3} mins
                   </span>
                 </div>
               </div>
 
               {/* Desk QR Preview Card */}
-              <div className="flex items-center gap-2.5 bg-slate-800/80 border border-white/10 rounded-2xl p-2.5 backdrop-blur-md">
-                <div className="h-10 w-10 rounded-xl bg-white p-1 shrink-0">
+              <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200 rounded-xl p-2 sm:p-2.5 shadow-sm self-start sm:self-auto">
+                <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg bg-white border border-slate-200 p-0.5 shrink-0">
                   <img
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(
                       `${typeof window !== 'undefined' ? window.location.origin : ''}/shop/${shopId}`
@@ -316,107 +297,146 @@ export default function ShopDetailPage() {
                   />
                 </div>
                 <div className="text-left">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-sky-400 block">
-                    Counter Station
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-blue-700 block">
+                    Counter Desk
                   </span>
-                  <span className="text-xs font-bold text-white">Desk QR</span>
+                  <span className="text-xs font-bold text-slate-800">Shop Standee</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Step Progress Stepper Bar */}
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 py-6">
-          <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-8 overflow-x-auto text-xs font-bold">
+        {/* Step Progress Stepper */}
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 py-4 sm:py-6">
+          {/* Mobile Stepper Indicator */}
+          <div className="sm:hidden mb-5 bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-bold text-slate-900">
+                Step {currentStep} of 5: {stepTitles[currentStep - 1]}
+              </span>
+              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                {Math.round((currentStep / 5) * 100)}%
+              </span>
+            </div>
+            {/* Progress Bar */}
+            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden mb-2">
+              <div
+                className="bg-blue-600 h-full rounded-full transition-all duration-300"
+                style={{ width: `${(currentStep / 5) * 100}%` }}
+              />
+            </div>
+            {/* Quick Step Buttons */}
+            <div className="flex justify-between gap-1 pt-1">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => (s <= currentStep || (uploadedFiles.length > 0 && s <= 4)) && setCurrentStep(s as any)}
+                  disabled={uploadedFiles.length === 0 && s > 1}
+                  className={`flex-1 py-1 rounded text-[10px] font-bold transition ${
+                    currentStep === s
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : s < currentStep
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                      : 'bg-slate-100 text-slate-400'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop Stepper Bar */}
+          <div className="hidden sm:flex items-center justify-between border-b border-slate-200 pb-4 mb-8 text-xs font-bold gap-2">
             <button
               onClick={() => setCurrentStep(1)}
               className={`flex items-center gap-1.5 transition whitespace-nowrap ${
                 currentStep === 1
-                  ? 'text-sky-400'
+                  ? 'text-blue-600'
                   : currentStep > 1
-                  ? 'text-emerald-400'
-                  : 'text-slate-500'
+                  ? 'text-emerald-700'
+                  : 'text-slate-400'
               }`}
             >
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
-                currentStep === 1 ? 'bg-sky-500 text-white' : currentStep > 1 ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-400'
+              <span className={`flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-bold ${
+                currentStep === 1 ? 'bg-blue-600 text-white' : currentStep > 1 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
               }`}>
                 1
               </span>
               <span>Upload Files</span>
             </button>
 
-            <ChevronRight className="h-4 w-4 text-slate-600" />
+            <span className="text-slate-400 font-normal">&rarr;</span>
 
             <button
               onClick={() => uploadedFiles.length > 0 && setCurrentStep(2)}
               disabled={uploadedFiles.length === 0}
               className={`flex items-center gap-1.5 transition whitespace-nowrap ${
                 currentStep === 2
-                  ? 'text-sky-400'
+                  ? 'text-blue-600'
                   : currentStep > 2
-                  ? 'text-emerald-400'
-                  : 'text-slate-500'
+                  ? 'text-emerald-700'
+                  : 'text-slate-400'
               }`}
             >
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
-                currentStep === 2 ? 'bg-sky-500 text-white' : currentStep > 2 ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-400'
+              <span className={`flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-bold ${
+                currentStep === 2 ? 'bg-blue-600 text-white' : currentStep > 2 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
               }`}>
                 2
               </span>
               <span>Print Specs</span>
             </button>
 
-            <ChevronRight className="h-4 w-4 text-slate-600" />
+            <span className="text-slate-400 font-normal">&rarr;</span>
 
             <button
               onClick={() => uploadedFiles.length > 0 && setCurrentStep(3)}
               disabled={uploadedFiles.length === 0}
               className={`flex items-center gap-1.5 transition whitespace-nowrap ${
                 currentStep === 3
-                  ? 'text-sky-400'
+                  ? 'text-blue-600'
                   : currentStep > 3
-                  ? 'text-emerald-400'
-                  : 'text-slate-500'
+                  ? 'text-emerald-700'
+                  : 'text-slate-400'
               }`}
             >
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
-                currentStep === 3 ? 'bg-sky-500 text-white' : currentStep > 3 ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-400'
+              <span className={`flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-bold ${
+                currentStep === 3 ? 'bg-blue-600 text-white' : currentStep > 3 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
               }`}>
                 3
               </span>
               <span>Select Machine</span>
             </button>
 
-            <ChevronRight className="h-4 w-4 text-slate-600" />
+            <span className="text-slate-400 font-normal">&rarr;</span>
 
             <button
               onClick={() => uploadedFiles.length > 0 && setCurrentStep(4)}
               disabled={uploadedFiles.length === 0}
               className={`flex items-center gap-1.5 transition whitespace-nowrap ${
                 currentStep === 4
-                  ? 'text-sky-400'
+                  ? 'text-blue-600'
                   : currentStep > 4
-                  ? 'text-emerald-400'
-                  : 'text-slate-500'
+                  ? 'text-emerald-700'
+                  : 'text-slate-400'
               }`}
             >
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
-                currentStep === 4 ? 'bg-sky-500 text-white' : currentStep > 4 ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-400'
+              <span className={`flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-bold ${
+                currentStep === 4 ? 'bg-blue-600 text-white' : currentStep > 4 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
               }`}>
                 4
               </span>
               <span>Payment</span>
             </button>
 
-            <ChevronRight className="h-4 w-4 text-slate-600" />
+            <span className="text-slate-400 font-normal">&rarr;</span>
 
             <span className={`flex items-center gap-1.5 whitespace-nowrap ${
-              currentStep === 5 ? 'text-sky-400' : 'text-slate-500'
+              currentStep === 5 ? 'text-blue-600' : 'text-slate-400'
             }`}>
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
-                currentStep === 5 ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-400'
+              <span className={`flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-bold ${
+                currentStep === 5 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'
               }`}>
                 5
               </span>
@@ -425,20 +445,19 @@ export default function ShopDetailPage() {
           </div>
 
           {error && (
-            <div className="mb-6 flex items-center gap-2 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-400">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{error}</span>
+            <div className="mb-4 sm:mb-6 rounded-xl border border-rose-200 bg-rose-50 p-3 sm:p-3.5 text-xs text-rose-700 font-semibold">
+              Notice: {error}
             </div>
           )}
 
           {/* STEP 1: Upload Documents */}
           {currentStep === 1 && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <div className="text-center max-w-md mx-auto mb-2">
-                <h3 className="font-heading text-lg font-bold text-white">
+                <h3 className="font-heading text-base sm:text-lg font-bold text-slate-900">
                   Step 1: Upload Your Documents
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Select single or multiple PDF, JPG, JPEG, and PNG files
                 </p>
               </div>
@@ -451,13 +470,13 @@ export default function ShopDetailPage() {
               />
 
               {uploadedFiles.length > 0 && (
-                <div className="pt-4 flex justify-end">
+                <div className="pt-3 sm:pt-4 flex justify-end">
                   <button
                     onClick={() => setCurrentStep(2)}
-                    className="flex items-center gap-2 rounded-2xl bg-sky-500 px-6 py-3 text-sm font-extrabold text-white hover:bg-sky-400 transition shadow-lg shadow-sky-500/25"
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-xs sm:text-sm font-bold text-white hover:bg-blue-700 transition shadow-sm"
                   >
                     <span>Proceed to Print Settings</span>
-                    <ArrowRight className="h-4 w-4" />
+                    <span>&rarr;</span>
                   </button>
                 </div>
               )}
@@ -466,20 +485,20 @@ export default function ShopDetailPage() {
 
           {/* STEP 2: Print Settings */}
           {currentStep === 2 && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-heading text-lg font-bold text-white">
+                  <h3 className="font-heading text-base sm:text-lg font-bold text-slate-900">
                     Step 2: Configure Print Options
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-[11px] sm:text-xs text-slate-500">
                     {uploadedFiles.length} file(s) • {totalCalculatedPages} total pages
                   </p>
                 </div>
 
                 <button
                   onClick={() => setCurrentStep(1)}
-                  className="text-xs font-semibold text-sky-400 hover:underline"
+                  className="text-xs font-bold text-blue-600 hover:underline"
                 >
                   Change Files
                 </button>
@@ -491,20 +510,20 @@ export default function ShopDetailPage() {
                 onChange={(settings) => setPrintSettings(settings)}
               />
 
-              <div className="pt-4 flex items-center justify-between">
+              <div className="pt-3 sm:pt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <button
                   onClick={() => setCurrentStep(1)}
-                  className="rounded-xl border border-white/10 bg-slate-800 px-4 py-2.5 text-xs font-bold text-slate-300 hover:text-white"
+                  className="w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm order-2 sm:order-1"
                 >
-                  ← Back to Files
+                  &larr; Back to Files
                 </button>
 
                 <button
                   onClick={() => setCurrentStep(3)}
-                  className="flex items-center gap-2 rounded-2xl bg-sky-500 px-6 py-3 text-sm font-extrabold text-white hover:bg-sky-400 transition shadow-lg shadow-sky-500/25"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-xs sm:text-sm font-bold text-white hover:bg-blue-700 transition shadow-sm order-1 sm:order-2"
                 >
                   <span>Proceed to Select Machine</span>
-                  <ArrowRight className="h-4 w-4" />
+                  <span>&rarr;</span>
                 </button>
               </div>
             </div>
@@ -512,12 +531,12 @@ export default function ShopDetailPage() {
 
           {/* STEP 3: Select Printer Machine */}
           {currentStep === 3 && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <div>
-                <h3 className="font-heading text-lg font-bold text-white mb-1">
+                <h3 className="font-heading text-base sm:text-lg font-bold text-slate-900 mb-0.5 sm:mb-1">
                   Step 3: Select Printer Machine
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Choose an available printer at {shop.name} for instant spooling
                 </p>
               </div>
@@ -529,13 +548,13 @@ export default function ShopDetailPage() {
               />
 
               {/* Customer Contact Details */}
-              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-5 mt-6">
-                <h4 className="font-heading text-xs font-bold text-white mb-3">
+              <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 mt-4 sm:mt-6 shadow-sm">
+                <h4 className="font-heading text-xs font-bold uppercase tracking-wider text-slate-800 mb-3">
                   Your Contact Information (For Counter Pickup Alerts)
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
-                    <label className="text-slate-300 font-semibold mb-1 block">
+                    <label className="text-slate-700 font-semibold mb-1 block">
                       Customer Name
                     </label>
                     <input
@@ -543,11 +562,11 @@ export default function ShopDetailPage() {
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
                       placeholder="e.g. Aman Sharma"
-                      className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-sky-500"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
                     />
                   </div>
                   <div>
-                    <label className="text-slate-300 font-semibold mb-1 block">
+                    <label className="text-slate-700 font-semibold mb-1 block">
                       Phone Number
                     </label>
                     <input
@@ -555,26 +574,26 @@ export default function ShopDetailPage() {
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       placeholder="+91 98765 43210"
-                      className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-sky-500"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="pt-4 flex items-center justify-between">
+              <div className="pt-3 sm:pt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <button
                   onClick={() => setCurrentStep(2)}
-                  className="rounded-xl border border-white/10 bg-slate-800 px-4 py-2.5 text-xs font-bold text-slate-300 hover:text-white"
+                  className="w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm order-2 sm:order-1"
                 >
-                  ← Back to Settings
+                  &larr; Back to Settings
                 </button>
 
                 <button
                   onClick={() => setCurrentStep(4)}
-                  className="flex items-center gap-2 rounded-2xl bg-sky-500 px-6 py-3 text-sm font-extrabold text-white hover:bg-sky-400 transition shadow-lg shadow-sky-500/25"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-xs sm:text-sm font-bold text-white hover:bg-blue-700 transition shadow-sm order-1 sm:order-2"
                 >
                   <span>Proceed to Payment</span>
-                  <ArrowRight className="h-4 w-4" />
+                  <span>&rarr;</span>
                 </button>
               </div>
             </div>
@@ -582,12 +601,12 @@ export default function ShopDetailPage() {
 
           {/* STEP 4: Review & Payment Selection */}
           {currentStep === 4 && (
-            <div className="space-y-6 max-w-xl mx-auto">
-              <div className="text-center mb-2">
-                <h3 className="font-heading text-xl font-bold text-white">
+            <div className="space-y-4 sm:space-y-6 max-w-xl mx-auto">
+              <div className="text-center mb-1 sm:mb-2">
+                <h3 className="font-heading text-lg sm:text-xl font-bold text-slate-900">
                   Step 4: Review & Pay
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Pay directly via Shopkeeper UPI QR Standee or Cash at Counter
                 </p>
               </div>
@@ -606,74 +625,73 @@ export default function ShopDetailPage() {
                 const grandTotal = +(subtotal + platformFee).toFixed(2);
 
                 return (
-                  <div className="rounded-3xl border border-white/10 bg-slate-900/90 p-5 space-y-2.5 text-xs">
-                    <div className="flex justify-between text-slate-300">
+                  <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 space-y-2 text-xs shadow-sm">
+                    <div className="flex justify-between text-slate-600">
                       <span>Cyber Café:</span>
-                      <span className="font-bold text-white">{shop.name}</span>
+                      <span className="font-bold text-slate-900">{shop.name}</span>
                     </div>
-                    <div className="flex justify-between text-slate-300">
+                    <div className="flex justify-between text-slate-600">
                       <span>Selected Machine:</span>
-                      <span className="font-semibold text-sky-400">{selectedPrinter?.name}</span>
+                      <span className="font-semibold text-blue-700">{selectedPrinter?.name}</span>
                     </div>
-                    <div className="flex justify-between text-slate-300">
+                    <div className="flex justify-between text-slate-600">
                       <span>Documents:</span>
-                      <span className="font-bold text-white">{uploadedFiles.length} file(s) ({totalCalculatedPages} pgs)</span>
+                      <span className="font-bold text-slate-900">{uploadedFiles.length} file(s) ({totalCalculatedPages} pgs)</span>
                     </div>
-                    <div className="flex justify-between text-slate-300">
+                    <div className="flex justify-between text-slate-600">
                       <span>Specs:</span>
-                      <span className="text-slate-200">
+                      <span className="text-slate-800 font-medium">
                         {printSettings?.copies} copy • {printSettings?.isColor ? 'Color' : 'B&W'} • {printSettings?.orientation} • {printSettings?.paperSize}
                       </span>
                     </div>
-                    <div className="border-t border-white/5 pt-2 flex justify-between text-slate-300">
+                    <div className="border-t border-slate-200 pt-2 flex justify-between text-slate-600">
                       <span>Printing Subtotal:</span>
-                      <span className="font-semibold text-white">₹{subtotal.toFixed(2)}</span>
+                      <span className="font-semibold text-slate-900">₹{subtotal.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-300">
+                    <div className="flex justify-between text-slate-600">
                       <span>{platformSettings?.platformFeeLabel || 'Platform Convenience Fee'}:</span>
-                      <span className={platformFee > 0 ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'}>
-                        {platformFee > 0 ? `+₹${platformFee.toFixed(2)}` : '₹0.00 (Launch Offer)'}
+                      <span className={platformFee > 0 ? 'text-amber-800 font-bold' : 'text-emerald-700 font-bold'}>
+                        {platformFee > 0 ? `+₹${platformFee.toFixed(2)}` : '₹0.00 (Free)'}
                       </span>
                     </div>
-                    <div className="flex justify-between border-t border-white/10 pt-3 font-heading text-base font-black text-white">
+                    <div className="flex justify-between border-t border-slate-200 pt-2.5 font-heading text-sm sm:text-base font-black text-slate-900">
                       <span>Total Payable:</span>
-                      <span className="text-emerald-400">₹{grandTotal.toFixed(2)}</span>
+                      <span className="text-blue-600">₹{grandTotal.toFixed(2)}</span>
                     </div>
                   </div>
                 );
               })()}
 
               {/* Payment Methods */}
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {/* OPTION 1: Direct Shop UPI Payment */}
                 <div
                   onClick={() => setPaymentMethod('UPI')}
-                  className={`rounded-2xl border p-4 cursor-pointer transition ${
+                  className={`rounded-xl sm:rounded-2xl border p-3.5 sm:p-4 cursor-pointer transition shadow-sm ${
                     paymentMethod === 'UPI'
-                      ? 'border-emerald-400 bg-emerald-950/20 ring-2 ring-emerald-500/30'
-                      : 'border-white/10 bg-slate-800/60'
+                      ? 'border-blue-600 bg-blue-50/40 ring-2 ring-blue-600'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
-                        <QrCode className="h-5 w-5" />
+                  <div className="flex items-center justify-between mb-2 sm:mb-3">
+                    <div>
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <span className="font-heading text-xs font-bold text-slate-900">
+                          Pay via Shop UPI QR / UPI App
+                        </span>
+                        <span className="rounded bg-blue-100 px-1.5 py-0.2 text-[9px] font-bold text-blue-800">
+                          Instant
+                        </span>
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-heading text-xs font-bold text-white">
-                            Pay via Shop UPI QR / UPI App
-                          </span>
-                          <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400">
-                            Instant Queue
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-400">
-                          Google Pay, PhonePe, Paytm, BHIM (Direct to Shop)
-                        </p>
-                      </div>
+                      <p className="text-[10px] sm:text-[11px] text-slate-500">
+                        Google Pay, PhonePe, Paytm, BHIM (Direct to Shop)
+                      </p>
                     </div>
-                    {paymentMethod === 'UPI' && <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />}
+                    {paymentMethod === 'UPI' && (
+                      <span className="text-[9px] sm:text-[10px] font-bold uppercase text-blue-700 bg-blue-100 px-2 py-0.5 rounded shrink-0">
+                        Selected
+                      </span>
+                    )}
                   </div>
 
                   {/* Expanded UPI QR Payment Details */}
@@ -690,10 +708,10 @@ export default function ShopDetailPage() {
                     const grandTotal = +(subtotal + platformFee).toFixed(2);
 
                     return (
-                      <div className="mt-4 pt-4 border-t border-white/10 space-y-4">
-                        <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-950/80 p-4 rounded-2xl border border-white/5">
+                      <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-slate-200 space-y-3 sm:space-y-4">
+                        <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-white p-3 sm:p-4 rounded-xl border border-slate-200">
                           {/* QR Code */}
-                          <div className="bg-white p-2.5 rounded-xl shrink-0 shadow-md">
+                          <div className="bg-white border border-slate-200 p-2 rounded-lg shrink-0 shadow-sm mx-auto sm:mx-0">
                             <img
                               src={
                                 shop.upiQrUrl ||
@@ -704,22 +722,22 @@ export default function ShopDetailPage() {
                                 )}`
                               }
                               alt="Scan Shop UPI QR"
-                              className="h-32 w-32 object-contain"
+                              className="h-28 w-28 sm:h-32 sm:w-32 object-contain"
                             />
                           </div>
 
                           {/* Payment Info & Quick Actions */}
-                          <div className="flex-1 text-center sm:text-left space-y-2.5 w-full">
-                            <div className="text-[11px] text-slate-400">
+                          <div className="flex-1 text-center sm:text-left space-y-2 w-full">
+                            <div className="text-[11px] text-slate-500">
                               Scan with GPay / PhonePe / Paytm to pay:
-                              <div className="font-heading text-lg font-black text-emerald-400 mt-0.5">
+                              <div className="font-heading text-lg font-black text-blue-600 mt-0.5">
                                 ₹{grandTotal.toFixed(2)}
                               </div>
                             </div>
 
                             {/* UPI ID Copy Box */}
-                            <div className="flex items-center justify-between rounded-xl bg-slate-900 border border-white/10 px-3 py-2 text-xs">
-                              <span className="font-mono text-[11px] text-slate-200 truncate mr-2">
+                            <div className="flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200 px-3 py-1.5 sm:py-2 text-xs">
+                              <span className="font-mono text-[10px] sm:text-[11px] text-slate-800 truncate mr-2">
                                 {shop.upiId || 'apexprint@upi'}
                               </span>
                               <button
@@ -730,10 +748,9 @@ export default function ShopDetailPage() {
                                   setCopiedUpi(true);
                                   setTimeout(() => setCopiedUpi(false), 2000);
                                 }}
-                                className="rounded-lg bg-emerald-500/20 px-2.5 py-1 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500/30 transition flex items-center gap-1 shrink-0"
+                                className="rounded-md bg-blue-100 px-2 py-1 text-[10px] font-bold text-blue-700 hover:bg-blue-200 transition shrink-0"
                               >
-                                {copiedUpi ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                                <span>{copiedUpi ? 'Copied' : 'Copy UPI'}</span>
+                                {copiedUpi ? 'Copied' : 'Copy UPI'}
                               </button>
                             </div>
 
@@ -745,17 +762,16 @@ export default function ShopDetailPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center justify-center gap-1.5 w-full rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 py-2 text-xs font-bold text-white hover:brightness-110 transition"
+                              className="inline-flex items-center justify-center w-full rounded-xl bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700 transition shadow-sm"
                             >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                              <span>Open in UPI App</span>
+                              <span>Open in UPI App (GPay/PhonePe)</span>
                             </a>
                           </div>
                         </div>
 
                         {/* UTR Reference Input */}
                         <div>
-                          <label className="text-xs font-semibold text-slate-300 mb-1.5 block">
+                          <label className="text-[11px] sm:text-xs font-semibold text-slate-700 mb-1 block">
                             UPI UTR / Reference ID (Optional confirmation)
                           </label>
                           <input
@@ -763,7 +779,7 @@ export default function ShopDetailPage() {
                             value={upiRefNumber}
                             onChange={(e) => setUpiRefNumber(e.target.value)}
                             placeholder="e.g. 423984102934 or Google Pay transaction ID"
-                            className="w-full rounded-xl border border-white/10 bg-slate-900 px-3.5 py-2.5 text-xs text-white font-mono outline-none focus:border-emerald-500"
+                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 font-mono outline-none focus:border-blue-600 shadow-sm"
                           />
                           <span className="text-[10px] text-slate-500 mt-1 block">
                             Instant verification for shopkeeper counter ledger.
@@ -777,46 +793,45 @@ export default function ShopDetailPage() {
                 {/* OPTION 2: Cash at Counter */}
                 <div
                   onClick={() => setPaymentMethod('CASH')}
-                  className={`flex items-center justify-between rounded-2xl border p-4 cursor-pointer transition ${
+                  className={`flex items-center justify-between rounded-xl sm:rounded-2xl border p-3.5 sm:p-4 cursor-pointer transition shadow-sm ${
                     paymentMethod === 'CASH'
-                      ? 'border-amber-400 bg-amber-500/15 ring-2 ring-amber-500/30'
-                      : 'border-white/10 bg-slate-800/60'
+                      ? 'border-blue-600 bg-blue-50/40 ring-2 ring-blue-600'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400">
-                      <Banknote className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <span className="font-heading text-xs font-bold text-white">
-                        Cash at Counter
-                      </span>
-                      <p className="text-[11px] text-slate-400">Pay cash in-person to shopkeeper for counter approval</p>
-                    </div>
+                  <div>
+                    <span className="font-heading text-xs font-bold text-slate-900 block">
+                      Cash at Counter
+                    </span>
+                    <p className="text-[10px] sm:text-[11px] text-slate-500">Pay cash in-person to shopkeeper for counter approval</p>
                   </div>
-                  {paymentMethod === 'CASH' && <CheckCircle2 className="h-5 w-5 text-amber-400" />}
+                  {paymentMethod === 'CASH' && (
+                    <span className="text-[9px] sm:text-[10px] font-bold uppercase text-blue-700 bg-blue-100 px-2 py-0.5 rounded shrink-0">
+                      Selected
+                    </span>
+                  )}
                 </div>
               </div>
 
-              <div className="pt-4 flex items-center justify-between">
+              <div className="pt-3 sm:pt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <button
                   onClick={() => setCurrentStep(3)}
-                  className="rounded-xl border border-white/10 bg-slate-800 px-4 py-2.5 text-xs font-bold text-slate-300"
+                  className="w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm order-2 sm:order-1"
                 >
-                  ← Back to Printer
+                  &larr; Back to Printer
                 </button>
 
                 <button
                   disabled={submitting}
                   onClick={handleProceedToPayment}
-                  className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 via-cyan-400 to-blue-600 px-6 py-3.5 text-sm font-extrabold text-white shadow-xl shadow-sky-500/25 hover:brightness-110 active:scale-95 transition disabled:opacity-50"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 px-6 py-3 text-xs sm:text-sm font-bold text-white shadow-sm transition active:scale-95 disabled:opacity-50 order-1 sm:order-2"
                 >
                   {submitting ? (
                     <span>Processing Payment...</span>
                   ) : (
                     <>
                       <span>Confirm & Select Fulfillment</span>
-                      <ArrowRight className="h-4 w-4" />
+                      <span>&rarr;</span>
                     </>
                   )}
                 </button>
@@ -826,7 +841,7 @@ export default function ShopDetailPage() {
 
           {/* STEP 5: Fulfillment Choice (Self Pickup vs Porter Delivery) */}
           {currentStep === 5 && createdOrder && (
-            <div className="max-w-xl mx-auto space-y-6">
+            <div className="max-w-xl mx-auto space-y-4 sm:space-y-6">
               <FulfillmentSelector
                 shopName={shop.name}
                 shopAddress={shop.address}

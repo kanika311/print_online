@@ -3,43 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  Shield,
-  Printer,
-  Users,
-  Store,
-  FileText,
-  DollarSign,
-  TrendingUp,
-  Plus,
-  QrCode,
-  Download,
-  KeyRound,
-  CheckCircle2,
-  AlertCircle,
-  Search,
-  Lock,
-  Unlock,
-  RefreshCw,
-  LogOut,
-  Sparkles,
-  Layers,
-  X,
-  Copy,
-  Check,
-  Pencil,
-  Trash2,
-  Settings,
-  UserCheck,
-  Percent,
-  Coins,
-  BadgePercent,
-  ShieldAlert,
-  ChevronRight,
-  Menu,
-  Sliders,
-  ExternalLink,
-} from 'lucide-react';
 import QRCodeCard from '@/components/QRCodeCard';
 
 type AdminTab =
@@ -55,6 +18,7 @@ type AdminTab =
 export default function KhushiAdminPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<AdminTab>('OVERVIEW');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -98,196 +62,152 @@ export default function KhushiAdminPage() {
   const [showRegisterShopModal, setShowRegisterShopModal] = useState(false);
   const [newCredentialsNotice, setNewCredentialsNotice] = useState<any>(null);
   const [selectedQRShop, setSelectedQRShop] = useState<any>(null);
+  const [showQRModal, setShowQRModal] = useState(false);
 
-  // Shop Registration Form
+  // Edit Shop Modal
+  const [showEditShopModal, setShowEditShopModal] = useState(false);
+  const [editingShop, setEditingShop] = useState<any>(null);
+  const [editShopName, setEditShopName] = useState('');
+  const [editShopAddress, setEditShopAddress] = useState('');
+  const [editShopOwnerName, setEditShopOwnerName] = useState('');
+  const [editShopOwnerPhone, setEditShopOwnerPhone] = useState('');
+  const [editShopUpiId, setEditShopUpiId] = useState('');
+
+  // Register Shop Form State
   const [shopName, setShopName] = useState('');
+  const [shopAddress, setShopAddress] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [ownerEmail, setOwnerEmail] = useState('');
   const [ownerPhone, setOwnerPhone] = useState('');
-  const [ownerPassword, setOwnerPassword] = useState('Shop@123');
-  const [shopAddress, setShopAddress] = useState('');
-  const [activePlan, setActivePlan] = useState('Free Launch Plan');
+  const [initialPassword, setInitialPassword] = useState('Shop@1234');
+  const [selectedPlanId, setSelectedPlanId] = useState('plan_free_pioneer');
+  const [submittingShop, setSubmittingShop] = useState(false);
 
-  // Edit Shop Form State
-  const [showEditShopModal, setShowEditShopModal] = useState(false);
-  const [editShopId, setEditShopId] = useState('');
-  const [editShopName, setEditShopName] = useState('');
-  const [editShopAddress, setEditShopAddress] = useState('');
-  const [editShopPhone, setEditShopPhone] = useState('');
-  const [editShopPlan, setEditShopPlan] = useState('');
-  const [editShopStartingPrice, setEditShopStartingPrice] = useState(2);
-  const [editShopUpiId, setEditShopUpiId] = useState('');
-
-  // Plans Modal Forms
+  // Subscription Plan Modals
   const [showAddPlanModal, setShowAddPlanModal] = useState(false);
   const [planName, setPlanName] = useState('');
-  const [planPrice, setPlanPrice] = useState(1499);
-  const [planPrinters, setPlanPrinters] = useState(5);
-  const [planCommission, setPlanCommission] = useState(3.0);
-  const [planFeatures, setPlanFeatures] = useState('');
+  const [planPriceMonthly, setPlanPriceMonthly] = useState(0);
+  const [planMaxPrinters, setPlanMaxPrinters] = useState(2);
+  const [planMaxOrders, setPlanMaxOrders] = useState(1000);
+  const [planDescription, setPlanDescription] = useState('');
 
-  // Edit Plan Form State
+  // Edit Plan
   const [showEditPlanModal, setShowEditPlanModal] = useState(false);
-  const [editPlanId, setEditPlanId] = useState('');
-  const [editPlanName, setEditPlanName] = useState('');
-  const [editPlanPrice, setEditPlanPrice] = useState(0);
-  const [editPlanPrinters, setEditPlanPrinters] = useState(5);
-  const [editPlanCommission, setEditPlanCommission] = useState(3.0);
-  const [editPlanFeatures, setEditPlanFeatures] = useState('');
+  const [editingPlan, setEditingPlan] = useState<any>(null);
 
-  // Verify Admin Session
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((res) => {
-        if (!res.ok) throw new Error('Not logged in');
-        return res.json();
-      })
-      .then((data) => {
-        if (data.authenticated && data.user.role === 'ADMIN') {
-          loadAllData();
-        } else {
-          router.push('/khushi-admin/login');
-        }
-      })
-      .catch(() => {
-        router.push('/khushi-admin/login');
-      });
-  }, []);
+  // Search queries
+  const [shopSearch, setShopSearch] = useState('');
+  const [orderSearch, setOrderSearch] = useState('');
+  const [userSearch, setUserSearch] = useState('');
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
   const loadAllData = async () => {
     setRefreshing(true);
     try {
-      const [
-        analyticsRes,
-        shopsRes,
-        usersRes,
-        ordersRes,
-        plansRes,
-        paymentsRes,
-        settingsRes,
-        adminProfileRes,
-      ] = await Promise.all([
-        fetch('/api/analytics'),
-        fetch('/api/shops'),
-        fetch('/api/users'),
-        fetch('/api/orders'),
-        fetch('/api/plans'),
-        fetch('/api/payments'),
-        fetch('/api/admin/settings'),
-        fetch('/api/admin/profile'),
+      // 1. Session check
+      const authRes = await fetch('/api/auth/me');
+      const authData = await authRes.json();
+      if (!authData.authenticated || authData.user.role !== 'ADMIN') {
+        router.push('/khushi-admin/login');
+        return;
+      }
+      setCurrentAdmin(authData.user);
+      setAdminProfileName(authData.user.name || '');
+      setAdminProfileEmail(authData.user.email || '');
+      setAdminProfilePhone(authData.user.phone || '');
+
+      // 2. Fetch parallel endpoints
+      const [anRes, shRes, usRes, ordRes, plRes, payRes, feeRes, admRes] = await Promise.all([
+        fetch('/api/analytics').then((r) => (r.ok ? r.json() : null)),
+        fetch('/api/shops').then((r) => (r.ok ? r.json() : null)),
+        fetch('/api/users').then((r) => (r.ok ? r.json() : null)),
+        fetch('/api/orders').then((r) => (r.ok ? r.json() : null)),
+        fetch('/api/plans').then((r) => (r.ok ? r.json() : null)),
+        fetch('/api/payments').then((r) => (r.ok ? r.json() : null)),
+        fetch('/api/admin/settings').then((r) => (r.ok ? r.json() : null)),
+        fetch('/api/admin/list').then((r) => (r.ok ? r.json() : null)),
       ]);
 
-      if (analyticsRes.ok) setAnalytics(await analyticsRes.json());
-      if (shopsRes.ok) {
-        const sData = await shopsRes.json();
-        setShops(sData.shops || []);
-      }
-      if (usersRes.ok) {
-        const uData = await usersRes.json();
-        setUsers(uData.users || []);
-      }
-      if (ordersRes.ok) {
-        const oData = await ordersRes.json();
-        setOrders(oData.orders || []);
-      }
-      if (plansRes.ok) {
-        const plData = await plansRes.json();
-        setPlans(plData.plans || []);
-      }
-      if (paymentsRes.ok) {
-        const pyData = await paymentsRes.json();
-        setPayments(pyData.payments || []);
-      }
-      if (settingsRes.ok) {
-        const stData = await settingsRes.json();
-        if (stData.settings) {
-          setPlatformFeeEnabled(Boolean(stData.settings.platformFeeEnabled));
-          setPlatformFeeType(stData.settings.platformFeeType || 'FLAT');
-          setPlatformFeeAmount(Number(stData.settings.platformFeeAmount) || 0);
-          setPlatformFeeLabel(stData.settings.platformFeeLabel || 'Platform Convenience Fee');
-        }
-      }
-      if (adminProfileRes.ok) {
-        const adData = await adminProfileRes.json();
-        if (adData.currentAdmin) {
-          setCurrentAdmin(adData.currentAdmin);
-          setAdminProfileName(adData.currentAdmin.name);
-          setAdminProfileEmail(adData.currentAdmin.email);
-          setAdminProfilePhone(adData.currentAdmin.phone || '');
-        }
-        if (adData.admins) {
-          setAdminList(adData.admins);
-        }
+      if (anRes) setAnalytics(anRes);
+      if (shRes?.shops) setShops(shRes.shops);
+      if (usRes?.users) setUsers(usRes.users);
+      if (ordRes?.orders) setOrders(ordRes.orders);
+      if (plRes?.plans) setPlans(plRes.plans);
+      if (payRes?.payments) setPayments(payRes.payments);
+      if (admRes?.admins) setAdminList(admRes.admins);
+
+      if (feeRes?.settings) {
+        setPlatformFeeEnabled(!!feeRes.settings.platformFeeEnabled);
+        setPlatformFeeType(feeRes.settings.platformFeeType || 'FLAT');
+        setPlatformFeeAmount(feeRes.settings.platformFeeAmount || 0);
+        setPlatformFeeLabel(feeRes.settings.platformFeeLabel || 'Platform Convenience Fee');
       }
     } catch (e) {
-      console.warn('Error loading admin data:', e);
+      console.error('Error loading admin portal data:', e);
     } finally {
       setRefreshing(false);
       setLoading(false);
     }
   };
 
-  // 1. Save Platform Monetization / Fee Settings
-  const handleSaveFeeSettings = async (e: React.FormEvent) => {
+  useEffect(() => {
+    loadAllData();
+  }, []);
+
+  // Save Platform Fees
+  const handleSavePlatformFees = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingFeeSettings(true);
     try {
       const res = await fetch('/api/admin/settings', {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           platformFeeEnabled,
           platformFeeType,
-          platformFeeAmount: Number(platformFeeAmount),
-          platformFeeLabel,
+          platformFeeAmount: Number(platformFeeAmount) || 0,
+          platformFeeLabel: platformFeeLabel.trim(),
         }),
       });
-      const data = await res.json();
+
       if (res.ok) {
-        showToast('Platform fee configuration updated successfully!');
+        showToast('Platform fee settings updated!');
       } else {
-        alert(data.error || 'Failed to update platform fees');
+        showToast('Failed to save settings');
       }
-    } catch (err: any) {
-      alert(err.message || 'Error updating settings');
+    } catch (e) {
+      showToast('Failed to save settings');
     } finally {
       setSavingFeeSettings(false);
     }
   };
 
-  // 2. Change Admin Profile & Password
+  // Update Admin Profile & Password
   const handleUpdateAdminProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (adminNewPassword && adminNewPassword !== adminConfirmPassword) {
-      alert('New password and confirm password do not match');
+      alert('New passwords do not match!');
       return;
     }
 
     setSavingAdminProfile(true);
     try {
-      const payload: any = {
-        name: adminProfileName,
-        email: adminProfileEmail,
-        phone: adminProfilePhone,
-      };
-
-      if (adminNewPassword) {
-        payload.currentPassword = adminCurrentPassword;
-        payload.newPassword = adminNewPassword;
-      }
-
       const res = await fetch('/api/admin/profile', {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          name: adminProfileName.trim(),
+          email: adminProfileEmail.trim(),
+          phone: adminProfilePhone.trim(),
+          currentPassword: adminCurrentPassword,
+          newPassword: adminNewPassword || undefined,
+        }),
       });
 
-      const data = await res.json();
       if (res.ok) {
         showToast('Admin credentials updated successfully!');
         setAdminCurrentPassword('');
@@ -295,193 +215,179 @@ export default function KhushiAdminPage() {
         setAdminConfirmPassword('');
         loadAllData();
       } else {
-        alert(data.error || 'Failed to update admin profile');
+        const d = await res.json();
+        alert(d.error || 'Failed to update credentials');
       }
-    } catch (err: any) {
-      alert(err.message || 'Error updating profile');
+    } catch (e) {
+      alert('Failed to update credentials');
     } finally {
       setSavingAdminProfile(false);
     }
   };
 
-  // 3. Create New Admin Account
-  const handleCreateNewAdmin = async (e: React.FormEvent) => {
+  // Create New Super Admin
+  const handleCreateAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreatingAdmin(true);
     try {
-      const res = await fetch('/api/users', {
+      const res = await fetch('/api/admin/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: newAdminName,
-          email: newAdminEmail,
-          phone: newAdminPhone,
-          password: newAdminPassword,
-          role: 'ADMIN',
+          name: newAdminName.trim(),
+          email: newAdminEmail.trim(),
+          phone: newAdminPhone.trim(),
+          password: newAdminPassword.trim(),
         }),
       });
 
-      const data = await res.json();
+      const d = await res.json();
       if (res.ok) {
+        setShowCreateAdminModal(false);
         setNewAdminCredentialsNotice({
           name: newAdminName,
           email: newAdminEmail,
           password: newAdminPassword,
         });
-        setShowCreateAdminModal(false);
         setNewAdminName('');
         setNewAdminEmail('');
         setNewAdminPhone('');
-        showToast('New Administrator account created!');
+        showToast('New Super Admin created successfully!');
         loadAllData();
       } else {
-        alert(data.error || 'Failed to create admin');
+        alert(d.error || 'Failed to create admin');
       }
-    } catch (err: any) {
-      alert(err.message || 'Error creating admin');
+    } catch (e) {
+      alert('Failed to create admin');
     } finally {
       setCreatingAdmin(false);
     }
   };
 
-  // 4. Shop Handlers
-  const handleRegisterShop = async (e: React.FormEvent) => {
+  // Create New Cyber Café Shop
+  const handleCreateShop = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmittingShop(true);
     try {
       const res = await fetch('/api/shops', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: shopName,
-          ownerName,
-          ownerEmail,
-          ownerPhone,
-          ownerPassword,
-          address: shopAddress,
-          activePlan,
+          name: shopName.trim(),
+          address: shopAddress.trim(),
+          ownerName: ownerName.trim(),
+          ownerEmail: ownerEmail.trim(),
+          ownerPhone: ownerPhone.trim(),
+          password: initialPassword.trim(),
+          planId: selectedPlanId,
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || 'Failed to register shop');
-        return;
+      const d = await res.json();
+      if (res.ok) {
+        setShowRegisterShopModal(false);
+        setNewCredentialsNotice({
+          shopName,
+          ownerEmail,
+          password: initialPassword,
+          shopId: d.shop?._id || d.shop?.id,
+        });
+        setShopName('');
+        setShopAddress('');
+        setOwnerName('');
+        setOwnerEmail('');
+        setOwnerPhone('');
+        showToast('New cyber café shop created!');
+        loadAllData();
+      } else {
+        alert(d.error || 'Failed to create shop');
       }
-
-      setNewCredentialsNotice(data.credentials);
-      setShowRegisterShopModal(false);
-      setShopName('');
-      setOwnerName('');
-      setOwnerEmail('');
-      setOwnerPhone('');
-      setShopAddress('');
-      loadAllData();
-    } catch (e: any) {
-      alert(e.message || 'Error registering shop');
+    } catch (e) {
+      alert('Failed to create shop');
+    } finally {
+      setSubmittingShop(false);
     }
   };
 
+  // Toggle Shop Active/Offline
+  const handleToggleShopStatus = async (shopId: string, currentOnline: boolean) => {
+    try {
+      const res = await fetch(`/api/shops/${shopId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isOnline: !currentOnline }),
+      });
+
+      if (res.ok) {
+        showToast(`Shop status toggled to ${!currentOnline ? 'Online' : 'Offline'}`);
+        loadAllData();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Open Edit Shop Modal
   const handleOpenEditShop = (shop: any) => {
-    setEditShopId(shop._id || shop.id);
-    setEditShopName(shop.name || '');
-    setEditShopAddress(shop.address || '');
-    setEditShopPhone(shop.phone || '');
-    setEditShopPlan(shop.activePlan || 'Free Launch Plan');
-    setEditShopStartingPrice(shop.startingPrice || 2);
+    setEditingShop(shop);
+    setEditShopName(shop.name);
+    setEditShopAddress(shop.address);
+    setEditShopOwnerName(shop.ownerName || '');
+    setEditShopOwnerPhone(shop.ownerPhone || '');
     setEditShopUpiId(shop.upiId || '');
     setShowEditShopModal(true);
   };
 
-  const handleUpdateShop = async (e: React.FormEvent) => {
+  const handleUpdateShopDetails = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editingShop) return;
+
     try {
-      const res = await fetch(`/api/shops/${editShopId}`, {
-        method: 'PATCH',
+      const res = await fetch(`/api/shops/${editingShop._id || editingShop.id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: editShopName,
-          address: editShopAddress,
-          phone: editShopPhone,
-          activePlan: editShopPlan,
-          startingPrice: Number(editShopStartingPrice),
-          upiId: editShopUpiId,
+          name: editShopName.trim(),
+          address: editShopAddress.trim(),
+          ownerName: editShopOwnerName.trim(),
+          ownerPhone: editShopOwnerPhone.trim(),
+          upiId: editShopUpiId.trim(),
         }),
       });
+
       if (res.ok) {
-        setShowEditShopModal(false);
         showToast('Shop details updated!');
+        setShowEditShopModal(false);
+        setEditingShop(null);
         loadAllData();
       } else {
-        const d = await res.json();
-        alert(d.error || 'Failed to update shop');
+        showToast('Failed to update shop');
       }
-    } catch (err: any) {
-      alert(err.message || 'Error updating shop');
+    } catch (e) {
+      showToast('Failed to update shop');
     }
   };
 
-  const handleDeleteShop = async (shopId: string, shopTitle: string) => {
-    if (!confirm(`Are you sure you want to permanently delete the shop "${shopTitle}" and all its connected printers?`)) {
+  // Delete Shop
+  const handleDeleteShop = async (shopId: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete shop "${name}"?`)) {
       return;
     }
+
     try {
       const res = await fetch(`/api/shops/${shopId}`, { method: 'DELETE' });
       if (res.ok) {
-        showToast('Shop deleted successfully');
+        showToast(`Shop "${name}" deleted.`);
         loadAllData();
       } else {
-        const d = await res.json();
-        alert(d.error || 'Failed to delete shop');
+        showToast('Failed to delete shop');
       }
-    } catch (e: any) {
-      alert(e.message || 'Error deleting shop');
-    }
-  };
-
-  const handleToggleShopActive = async (shopId: string, currentStatus: boolean) => {
-    try {
-      const res = await fetch(`/api/shops/${shopId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: !currentStatus }),
-      });
-      if (res.ok) loadAllData();
     } catch (e) {
-      console.error(e);
+      showToast('Failed to delete shop');
     }
   };
 
-  // 5. User Handlers
-  const handleToggleBlockUser = async (userId: string, currentStatus: boolean) => {
-    try {
-      const res = await fetch('/api/users', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, isBlocked: !currentStatus }),
-      });
-      if (res.ok) loadAllData();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleDeleteUser = async (userId: string, userName: string) => {
-    if (!confirm(`Are you sure you want to permanently delete user "${userName}"?`)) return;
-    try {
-      const res = await fetch(`/api/users?id=${userId}`, { method: 'DELETE' });
-      if (res.ok) {
-        showToast('User removed');
-        loadAllData();
-      } else {
-        const d = await res.json();
-        alert(d.error || 'Failed to delete user');
-      }
-    } catch (e: any) {
-      alert(e.message || 'Error deleting user');
-    }
-  };
-
-  // 6. Plans Handlers
+  // Create Plan
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -489,86 +395,44 @@ export default function KhushiAdminPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: planName,
-          priceMonthly: Number(planPrice),
-          priceYearly: Number(planPrice) * 10,
-          maxPrinters: Number(planPrinters),
-          commissionRate: Number(planCommission),
-          features: planFeatures.split('\n').filter((f) => f.trim().length > 0),
+          name: planName.trim(),
+          priceMonthly: Number(planPriceMonthly),
+          maxPrinters: Number(planMaxPrinters),
+          maxOrdersPerMonth: Number(planMaxOrders),
+          description: planDescription.trim(),
+          isActive: true,
         }),
       });
 
       if (res.ok) {
+        showToast('New plan added!');
         setShowAddPlanModal(false);
         setPlanName('');
-        setPlanFeatures('');
-        showToast('New subscription plan published!');
+        setPlanDescription('');
         loadAllData();
       } else {
-        const d = await res.json();
-        alert(d.error || 'Failed to create plan');
+        showToast('Failed to add plan');
       }
-    } catch (e: any) {
-      alert(e.message || 'Error creating plan');
+    } catch (e) {
+      showToast('Failed to add plan');
     }
   };
 
-  const handleOpenEditPlan = (plan: any) => {
-    setEditPlanId(plan._id);
-    setEditPlanName(plan.name);
-    setEditPlanPrice(plan.priceMonthly || 0);
-    setEditPlanPrinters(plan.maxPrinters || 5);
-    setEditPlanCommission(plan.commissionRate || 3.0);
-    setEditPlanFeatures((plan.features || []).join('\n'));
-    setShowEditPlanModal(true);
-  };
-
-  const handleUpdatePlan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await fetch('/api/plans', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editPlanId,
-          name: editPlanName,
-          priceMonthly: Number(editPlanPrice),
-          priceYearly: Number(editPlanPrice) * 10,
-          maxPrinters: Number(editPlanPrinters),
-          commissionRate: Number(editPlanCommission),
-          features: editPlanFeatures.split('\n').filter((f) => f.trim().length > 0),
-        }),
-      });
-
-      if (res.ok) {
-        setShowEditPlanModal(false);
-        showToast('Plan updated successfully!');
-        loadAllData();
-      } else {
-        const d = await res.json();
-        alert(d.error || 'Failed to update plan');
-      }
-    } catch (e: any) {
-      alert(e.message || 'Error updating plan');
-    }
-  };
-
-  const handleDeletePlan = async (planId: string, planName: string) => {
-    if (!confirm(`Are you sure you want to delete the plan "${planName}"?`)) return;
+  // Delete Plan
+  const handleDeletePlan = async (planId: string, name: string) => {
+    if (!window.confirm(`Delete plan "${name}"?`)) return;
     try {
       const res = await fetch(`/api/plans?id=${planId}`, { method: 'DELETE' });
       if (res.ok) {
-        showToast('Plan deleted');
+        showToast(`Plan "${name}" removed`);
         loadAllData();
-      } else {
-        const d = await res.json();
-        alert(d.error || 'Failed to delete plan');
       }
-    } catch (e: any) {
-      alert(e.message || 'Error deleting plan');
+    } catch (e) {
+      showToast('Failed to delete plan');
     }
   };
 
+  // Sign out
   const handleLogout = () => {
     document.cookie = 'printporter_token=; Max-Age=0; path=/;';
     router.push('/khushi-admin/login');
@@ -576,9 +440,8 @@ export default function KhushiAdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#070b13] flex flex-col items-center justify-center text-slate-400">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-purple-500 border-t-transparent mb-4" />
-        <p className="text-sm font-semibold tracking-wide">Loading PrintPorter Root Console...</p>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-500">
+        <p className="text-sm font-semibold">Loading PrintPorter Admin CMS...</p>
       </div>
     );
   }
@@ -586,1141 +449,756 @@ export default function KhushiAdminPage() {
   const kpis = analytics?.kpis || {};
 
   return (
-    <div className="min-h-screen flex bg-[#070b13] text-slate-100 selection:bg-purple-500 selection:text-white">
+    <div className="min-h-screen flex bg-slate-50 text-slate-900 selection:bg-blue-600 selection:text-white">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-50 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold px-4 py-3 shadow-2xl flex items-center gap-2 animate-in slide-in-from-top-4">
-          <CheckCircle2 className="h-4 w-4" />
-          <span className="text-xs">{toastMessage}</span>
+        <div className="fixed top-5 right-5 z-50 rounded-xl bg-blue-600 text-white font-bold px-4 py-2.5 shadow-lg text-xs animate-in slide-in-from-top-2">
+          {toastMessage}
         </div>
       )}
 
-      {/* ========================================================
-          1. MODERN FIXED LEFT SIDEBAR PANEL
-      ======================================================== */}
-      <aside className="w-64 lg:w-72 border-r border-white/10 bg-[#090e18] flex flex-col justify-between shrink-0 sticky top-0 h-screen z-40">
+      {/* Mobile Drawer Overlay Backdrop */}
+      {isMobileMenuOpen && (
+        <div
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs md:hidden"
+        />
+      )}
+
+      {/* 1. LEFT SIDEBAR PANEL (Desktop persistent, Mobile slide-over drawer) */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 transition-transform duration-200 ease-in-out md:static md:translate-x-0 md:w-64 md:h-screen md:sticky md:top-0 ${
+          isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
         <div className="flex flex-col flex-1 overflow-y-auto">
-          {/* Brand Header */}
-          <div className="p-5 border-b border-white/10 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 text-white shadow-lg shadow-purple-500/30">
-                <Shield className="h-5 w-5" />
+          {/* Header */}
+          <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs tracking-wider shrink-0">
+                CMS
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-heading text-sm font-black text-white tracking-wide">
-                    PrintPorter
-                  </span>
-                  <span className="rounded-md bg-purple-500/20 border border-purple-500/30 px-1.5 py-0.2 text-[9px] font-extrabold text-purple-400 uppercase">
-                    Root
-                  </span>
+              <div className="min-w-0">
+                <div className="font-heading text-xs font-bold text-slate-900 truncate">
+                  PrintPorter Root
                 </div>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-[10px] text-slate-400 font-mono">CMS Active</span>
+                <div className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded mt-0.5 inline-block">
+                  Super Admin Console
                 </div>
               </div>
             </div>
+
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="md:hidden text-xs font-bold text-slate-500 hover:text-slate-900 px-2 py-1 rounded-lg border border-slate-200 bg-slate-50"
+            >
+              Close
+            </button>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="p-3 space-y-1 text-xs font-semibold">
-            {/* 1. Analytics */}
+          {/* Navigation items */}
+          <nav className="p-3 space-y-1 text-xs">
             <button
-              onClick={() => setActiveTab('OVERVIEW')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+              onClick={() => {
+                setActiveTab('OVERVIEW');
+                setIsMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition ${
                 activeTab === 'OVERVIEW'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-blue-600 text-white font-bold shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-semibold'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <TrendingUp className="h-4 w-4 shrink-0" />
-                <span>Overview & Metrics</span>
-              </div>
+              <span>Overview & Metrics</span>
             </button>
 
-            {/* 2. Printer Shops */}
             <button
-              onClick={() => setActiveTab('SHOPS')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+              onClick={() => {
+                setActiveTab('SHOPS');
+                setIsMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition ${
                 activeTab === 'SHOPS'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-blue-600 text-white font-bold shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-semibold'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <Store className="h-4 w-4 shrink-0" />
-                <span>Cyber Café Hubs</span>
-              </div>
-              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px]">
+              <span>Cyber Café Hubs</span>
+              <span className={`rounded-full px-2 py-0.2 text-[10px] ${
+                activeTab === 'SHOPS' ? 'bg-white text-blue-700' : 'bg-slate-100 text-slate-700'
+              }`}>
                 {shops.length}
               </span>
             </button>
 
-            {/* 3. Master Orders */}
             <button
-              onClick={() => setActiveTab('ORDERS')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+              onClick={() => {
+                setActiveTab('ORDERS');
+                setIsMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition ${
                 activeTab === 'ORDERS'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-blue-600 text-white font-bold shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-semibold'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <FileText className="h-4 w-4 shrink-0" />
-                <span>Master Orders Queue</span>
-              </div>
-              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px]">
+              <span>Master Orders Queue</span>
+              <span className={`rounded-full px-2 py-0.2 text-[10px] ${
+                activeTab === 'ORDERS' ? 'bg-white text-blue-700' : 'bg-slate-100 text-slate-700'
+              }`}>
                 {orders.length}
               </span>
             </button>
 
-            {/* 4. Subscription Plans */}
             <button
-              onClick={() => setActiveTab('PLANS')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+              onClick={() => {
+                setActiveTab('PLANS');
+                setIsMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition ${
                 activeTab === 'PLANS'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-blue-600 text-white font-bold shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-semibold'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <Layers className="h-4 w-4 shrink-0" />
-                <span>Subscription Plans</span>
-              </div>
-              <span className="rounded-full bg-emerald-500/20 text-emerald-400 px-2 py-0.5 text-[10px]">
+              <span>Subscription Plans</span>
+              <span className={`rounded-full px-2 py-0.2 text-[10px] ${
+                activeTab === 'PLANS' ? 'bg-white text-blue-700' : 'bg-slate-100 text-slate-700'
+              }`}>
                 {plans.length}
               </span>
             </button>
 
-            {/* 5. Platform Fees & Monetization (NEW) */}
             <button
-              onClick={() => setActiveTab('PLATFORM_FEES')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+              onClick={() => {
+                setActiveTab('PLATFORM_FEES');
+                setIsMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition ${
                 activeTab === 'PLATFORM_FEES'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-blue-600 text-white font-bold shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-semibold'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <BadgePercent className="h-4 w-4 shrink-0 text-amber-400" />
-                <span>User Platform Fees</span>
-              </div>
-              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${platformFeeEnabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'}`}>
+              <span>User Platform Fees</span>
+              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                platformFeeEnabled ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+              }`}>
                 {platformFeeEnabled ? 'ON' : 'OFF'}
               </span>
             </button>
 
-            {/* 6. Cash & Online Ledger */}
             <button
-              onClick={() => setActiveTab('PAYMENTS')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+              onClick={() => {
+                setActiveTab('PAYMENTS');
+                setIsMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition ${
                 activeTab === 'PAYMENTS'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-blue-600 text-white font-bold shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-semibold'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <DollarSign className="h-4 w-4 shrink-0" />
-                <span>Settlements Ledger</span>
-              </div>
+              <span>Settlements Ledger</span>
             </button>
 
-            {/* 7. Platform Users */}
             <button
-              onClick={() => setActiveTab('USERS')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+              onClick={() => {
+                setActiveTab('USERS');
+                setIsMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition ${
                 activeTab === 'USERS'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-blue-600 text-white font-bold shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-semibold'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <Users className="h-4 w-4 shrink-0" />
-                <span>User Accounts</span>
-              </div>
-              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px]">
+              <span>User Accounts</span>
+              <span className={`rounded-full px-2 py-0.2 text-[10px] ${
+                activeTab === 'USERS' ? 'bg-white text-blue-700' : 'bg-slate-100 text-slate-700'
+              }`}>
                 {users.length}
               </span>
             </button>
 
-            {/* 8. Admin Team & Security (NEW) */}
             <button
-              onClick={() => setActiveTab('ADMINS')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+              onClick={() => {
+                setActiveTab('ADMINS');
+                setIsMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition ${
                 activeTab === 'ADMINS'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-blue-600 text-white font-bold shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-semibold'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <UserCheck className="h-4 w-4 shrink-0 text-sky-400" />
-                <span>Admin Team & Access</span>
-              </div>
-              <span className="rounded-full bg-sky-500/20 text-sky-400 px-2 py-0.5 text-[10px]">
+              <span>Admin Credentials</span>
+              <span className="rounded bg-blue-50 border border-blue-200 text-blue-700 px-1.5 py-0.2 text-[9px] font-bold">
                 {adminList.length || 1}
               </span>
             </button>
           </nav>
         </div>
 
-        {/* Sidebar Footer: Active Admin Profile Card */}
-        <div className="p-4 border-t border-white/10 bg-slate-900/50">
-          <div className="flex items-center justify-between gap-3">
-            <div
-              onClick={() => setActiveTab('ADMINS')}
-              className="flex items-center gap-2.5 min-w-0 cursor-pointer hover:opacity-80 transition"
-              title="Click to manage profile & password"
-            >
-              <div className="h-9 w-9 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 font-bold text-xs shrink-0">
-                {currentAdmin?.name?.charAt(0) || 'A'}
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-white truncate">
-                  {currentAdmin?.name || 'Super Admin'}
-                </div>
-                <div className="text-[10px] text-purple-400 font-semibold truncate">
-                  Root Controller
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={handleLogout}
-              className="rounded-xl p-2 text-rose-400 hover:bg-rose-500/15 hover:text-rose-300 transition"
-              title="Sign Out"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
+        {/* Sidebar Footer */}
+        <div className="p-3 border-t border-slate-200 space-y-2 text-xs">
+          <div className="px-3 py-1 text-slate-500 font-medium">
+            Signed in as: <strong className="text-slate-900 block truncate">{currentAdmin?.name || 'Super Admin'}</strong>
           </div>
+
+          <button
+            onClick={handleLogout}
+            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-rose-600 hover:bg-rose-50 font-medium transition"
+          >
+            <span>Sign Out</span>
+          </button>
         </div>
       </aside>
 
-      {/* ========================================================
-          2. MAIN CONTENT AREA WITH DYNAMIC TOP BAR
-      ======================================================== */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        {/* Sticky Top Action Header */}
-        <header className="border-b border-white/10 bg-slate-900/80 backdrop-blur-xl px-6 py-4 sticky top-0 z-30 flex items-center justify-between">
-          <div>
-            <h2 className="font-heading text-lg font-black text-white">
-              {activeTab === 'OVERVIEW' && 'Platform Performance & Executive Overview'}
-              {activeTab === 'SHOPS' && 'Cyber Café Hubs & Hardware Desks'}
-              {activeTab === 'ORDERS' && 'Live Master Spooler & Customer Orders'}
-              {activeTab === 'PLANS' && 'Cyber Café Subscription Plans'}
-              {activeTab === 'PLATFORM_FEES' && 'User Platform Fees & Future Monetization'}
-              {activeTab === 'PAYMENTS' && 'Cash vs UPI Financial Reconciliation'}
-              {activeTab === 'USERS' && 'Registered Users & Customers'}
-              {activeTab === 'ADMINS' && 'Administrator Team & Security Credentials'}
-            </h2>
-            <p className="text-[11px] text-slate-400">
-              Root Control CMS • Dedicated Admin Panel at /khushi-admin
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            {/* Quick action based on tab */}
-            {activeTab === 'SHOPS' && (
-              <button
-                onClick={() => setShowRegisterShopModal(true)}
-                className="flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-purple-500 transition shadow-md shadow-purple-600/30"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Register Shop</span>
-              </button>
-            )}
-
-            {activeTab === 'PLANS' && (
-              <button
-                onClick={() => setShowAddPlanModal(true)}
-                className="flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-purple-500 transition shadow-md shadow-purple-600/30"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Add Tier Plan</span>
-              </button>
-            )}
-
-            {activeTab === 'ADMINS' && (
-              <button
-                onClick={() => setShowCreateAdminModal(true)}
-                className="flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-purple-500 transition shadow-md shadow-purple-600/30"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Create New Admin</span>
-              </button>
-            )}
-
+      {/* 2. MAIN ADMIN CONTENT */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur-md px-3 sm:px-6 py-3 sm:py-3.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <button
-              onClick={loadAllData}
-              className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 hover:text-white transition"
-              title="Refresh Data"
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="md:hidden flex items-center justify-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 shadow-sm shrink-0"
+              aria-label="Toggle Navigation Menu"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
+              <span>[Menu]</span>
             </button>
 
-            <Link
-              href="/"
-              target="_blank"
-              className="hidden md:flex items-center gap-1 rounded-xl bg-sky-500/10 border border-sky-500/30 px-3 py-2 text-xs font-semibold text-sky-400 hover:bg-sky-500/20 transition"
-            >
-              <span>User App</span>
-              <ExternalLink className="h-3 w-3" />
-            </Link>
+            <div className="min-w-0">
+              <h1 className="font-heading text-sm sm:text-lg font-bold text-slate-900 truncate">
+                {activeTab === 'OVERVIEW' && 'Platform Overview & Network Metrics'}
+                {activeTab === 'SHOPS' && 'Cyber Café Printing Hubs'}
+                {activeTab === 'ORDERS' && 'Master Orders Stream & Spooler'}
+                {activeTab === 'PLANS' && 'Platform Subscription Tiers'}
+                {activeTab === 'PLATFORM_FEES' && 'User Platform Fees & Monetization'}
+                {activeTab === 'PAYMENTS' && 'Financial Settlements Ledger'}
+                {activeTab === 'USERS' && 'User Accounts & Customer Database'}
+                {activeTab === 'ADMINS' && 'Administrator Management & Passwords'}
+              </h1>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">
+                Central Control Dashboard • PrintPorter Network
+              </p>
+            </div>
+          </div>
 
-            <Link
-              href="/printer/login"
-              target="_blank"
-              className="hidden md:flex items-center gap-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition"
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={loadAllData}
+              className="rounded-lg border border-slate-300 bg-white px-2.5 sm:px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm"
             >
-              <span>Printer Terminal</span>
-              <ExternalLink className="h-3 w-3" />
-            </Link>
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
           </div>
         </header>
 
-        {/* Main Body */}
-        <main className="flex-1 p-6 space-y-6">
-          {/* Top Executive KPI Cards across all tabs for fast situational awareness */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4">
-              <span className="text-xs text-slate-400 font-medium">Platform GMV</span>
-              <div className="font-heading text-2xl font-black text-white mt-1">
-                ₹{(kpis.totalRevenue || 23400).toFixed(2)}
-              </div>
-              <span className="text-[10px] text-emerald-400 font-bold mt-0.5 block">
-                Total Orders Value
-              </span>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4">
-              <span className="text-xs text-slate-400 font-medium">Registered Cyber Cafes</span>
-              <div className="font-heading text-2xl font-black text-sky-400 mt-1">
-                {shops.length} Hubs
-              </div>
-              <span className="text-[10px] text-slate-400 mt-0.5 block">
-                {kpis.availablePrinters || 2} active printers online
-              </span>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4">
-              <span className="text-xs text-slate-400 font-medium">Platform Users</span>
-              <div className="font-heading text-2xl font-black text-purple-400 mt-1">
-                {users.length} Users
-              </div>
-              <span className="text-[10px] text-slate-400 mt-0.5 block">
-                {adminList.length} Administrators
-              </span>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4">
-              <span className="text-xs text-slate-400 font-medium">Total Print Jobs</span>
-              <div className="font-heading text-2xl font-black text-emerald-400 mt-1">
-                {kpis.totalOrders || orders.length} Orders
-              </div>
-              <span className="text-[10px] text-slate-400 mt-0.5 block">
-                {kpis.totalPagesPrinted || 25} pages processed
-              </span>
-            </div>
-          </div>
-
-          {/* ========================================================
-              TAB 1: OVERVIEW & ANALYTICS
-          ======================================================== */}
+        <main className="p-3 sm:p-6 space-y-4 sm:space-y-6 min-w-0">
+          {/* TAB 1: OVERVIEW */}
           {activeTab === 'OVERVIEW' && (
             <div className="space-y-6">
-              <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-6">
-                <h3 className="font-heading text-base font-bold text-white mb-4">
-                  7-Day Platform Revenue & Order Volume
-                </h3>
-                <div className="grid grid-cols-7 gap-2 text-center">
-                  {(analytics?.revenueTrend || []).map((item: any, idx: number) => (
-                    <div key={idx} className="flex flex-col items-center">
-                      <div className="text-[10px] text-slate-400 mb-1">₹{item.revenue}</div>
-                      <div className="w-full bg-slate-800 rounded-t-lg h-32 flex items-end justify-center p-1">
-                        <div
-                          className="w-full rounded bg-gradient-to-t from-sky-500 to-purple-500 transition-all"
-                          style={{
-                            height: `${Math.min(100, Math.max(20, (item.revenue / 2000) * 100))}%`,
-                          }}
-                        />
-                      </div>
-                      <div className="text-xs font-bold text-slate-300 mt-2">{item.day}</div>
-                      <div className="text-[10px] text-slate-500">{item.orders} orders</div>
-                    </div>
-                  ))}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                    Registered Shops
+                  </span>
+                  <div className="font-heading text-2xl font-black text-slate-900 mt-1">
+                    {shops.length}
+                  </div>
+                  <span className="text-[10px] text-emerald-700 font-semibold mt-0.5 block">
+                    {shops.filter((s) => s.isOnline !== false).length} online now
+                  </span>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                    Total Print Orders
+                  </span>
+                  <div className="font-heading text-2xl font-black text-blue-600 mt-1">
+                    {orders.length}
+                  </div>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    Platform lifetime
+                  </span>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                    Registered Users
+                  </span>
+                  <div className="font-heading text-2xl font-black text-slate-900 mt-1">
+                    {users.length}
+                  </div>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    Customers & shop owners
+                  </span>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                    Network GMV Volume
+                  </span>
+                  <div className="font-heading text-2xl font-black text-emerald-700 mt-1">
+                    ₹{kpis.totalRevenue?.toFixed(2) || '0.00'}
+                  </div>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    Direct shop settlements
+                  </span>
                 </div>
               </div>
 
-              {/* Quick Actions Bar */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Quick Actions Card */}
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+                <h3 className="font-heading text-sm font-bold text-slate-900">
+                  Quick Management Actions
+                </h3>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={() => {
+                      setActiveTab('SHOPS');
+                      setShowRegisterShopModal(true);
+                    }}
+                    className="rounded-xl bg-blue-600 hover:bg-blue-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition"
+                  >
+                    + Add New Cyber Café
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('PLATFORM_FEES')}
+                    className="rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 shadow-sm transition"
+                  >
+                    Configure Platform Fees ({platformFeeEnabled ? 'ON' : 'OFF'})
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveTab('ADMINS');
+                      setShowCreateAdminModal(true);
+                    }}
+                    className="rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 shadow-sm transition"
+                  >
+                    + Create New Super Admin
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: SHOPS */}
+          {activeTab === 'SHOPS' && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <input
+                  type="text"
+                  value={shopSearch}
+                  onChange={(e) => setShopSearch(e.target.value)}
+                  placeholder="Search shop by name or address..."
+                  className="rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-blue-600 w-full sm:w-80 shadow-sm"
+                />
+
                 <button
                   onClick={() => setShowRegisterShopModal(true)}
-                  className="rounded-2xl border border-purple-500/30 bg-purple-950/20 p-5 text-left hover:bg-purple-950/30 transition flex items-center justify-between"
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition"
                 >
-                  <div>
-                    <h4 className="font-heading text-sm font-bold text-white">
-                      + Register Printer Shop
-                    </h4>
-                    <p className="text-xs text-purple-300 mt-0.5">
-                      Onboard partner café & generate desk QR
-                    </p>
-                  </div>
-                  <Store className="h-6 w-6 text-purple-400 shrink-0" />
+                  + Add New Shop
                 </button>
+              </div>
+
+              {/* Credentials Notice */}
+              {newCredentialsNotice && (
+                <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 space-y-2 text-xs shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-emerald-900">
+                      New Shopkeeper Credentials Generated
+                    </span>
+                    <button
+                      onClick={() => setNewCredentialsNotice(null)}
+                      className="text-[11px] font-bold text-emerald-800"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-white border border-emerald-200 rounded-lg p-3 text-slate-800">
+                    <div>
+                      <span className="text-slate-500 block">Shop:</span>
+                      <strong>{newCredentialsNotice.shopName}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Login Email:</span>
+                      <strong className="font-mono">{newCredentialsNotice.ownerEmail}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Password:</span>
+                      <strong className="font-mono">{newCredentialsNotice.password}</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Shops Table */}
+              <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      <tr>
+                        <th className="px-4 py-3">Shop Name</th>
+                        <th className="px-4 py-3">Address</th>
+                        <th className="px-4 py-3">Owner Contact</th>
+                        <th className="px-4 py-3">Shop UPI</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {shops
+                        .filter((s) => s.name?.toLowerCase().includes(shopSearch.toLowerCase()) || s.address?.toLowerCase().includes(shopSearch.toLowerCase()))
+                        .map((shop) => (
+                          <tr key={shop._id || shop.id} className="hover:bg-slate-50/70 transition">
+                            <td className="px-4 py-3">
+                              <span className="font-bold text-slate-900 block">{shop.name}</span>
+                              <span className="text-[10px] text-slate-500">ID: {shop._id || shop.id}</span>
+                            </td>
+                            <td className="px-4 py-3 text-slate-600 truncate max-w-[200px]" title={shop.address}>
+                              {shop.address}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="font-semibold text-slate-800">{shop.ownerName || '-'}</div>
+                              <div className="text-[11px] text-slate-500">{shop.ownerPhone || '-'}</div>
+                            </td>
+                            <td className="px-4 py-3 font-mono text-slate-800">
+                              {shop.upiId || 'Not set'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <button
+                                onClick={() => handleToggleShopStatus(shop._id || shop.id, shop.isOnline !== false)}
+                                className={`rounded px-2 py-0.5 text-[10px] font-bold border ${
+                                  shop.isOnline !== false
+                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                                    : 'bg-slate-100 border-slate-300 text-slate-500'
+                                }`}
+                              >
+                                {shop.isOnline !== false ? 'Online' : 'Offline'}
+                              </button>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    setSelectedQRShop(shop);
+                                    setShowQRModal(true);
+                                  }}
+                                  className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 shadow-sm"
+                                >
+                                  QR Placard
+                                </button>
+                                <button
+                                  onClick={() => handleOpenEditShop(shop)}
+                                  className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 shadow-sm"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteShop(shop._id || shop.id, shop.name)}
+                                  className="rounded-lg px-2 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-50"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: MASTER ORDERS */}
+          {activeTab === 'ORDERS' && (
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={orderSearch}
+                onChange={(e) => setOrderSearch(e.target.value)}
+                placeholder="Filter orders by order # or customer..."
+                className="rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-blue-600 w-full sm:w-80 shadow-sm"
+              />
+
+              <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      <tr>
+                        <th className="px-4 py-3">Order #</th>
+                        <th className="px-4 py-3">Shop</th>
+                        <th className="px-4 py-3">Customer</th>
+                        <th className="px-4 py-3">Document</th>
+                        <th className="px-4 py-3">Total</th>
+                        <th className="px-4 py-3">Fulfillment</th>
+                        <th className="px-4 py-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {orders
+                        .filter((o) => o.orderNumber?.includes(orderSearch) || o.customerName?.toLowerCase().includes(orderSearch.toLowerCase()))
+                        .map((ord) => (
+                          <tr key={ord._id || ord.id} className="hover:bg-slate-50/70 transition">
+                            <td className="px-4 py-3 font-bold text-slate-900">
+                              #{ord.orderNumber}
+                            </td>
+                            <td className="px-4 py-3 font-semibold text-slate-800">
+                              {ord.shopName}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="font-semibold text-slate-800">{ord.customerName}</div>
+                              <div className="text-[11px] text-slate-500">{ord.customerPhone}</div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="font-semibold text-slate-800 truncate max-w-[160px]" title={ord.fileName}>
+                                {ord.fileName}
+                              </div>
+                              <div className="text-[11px] text-slate-500">
+                                {ord.pageCount} pgs • {ord.isColor ? 'Color' : 'B&W'}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="font-bold text-slate-900">₹{ord.totalPrice?.toFixed(2)}</div>
+                              <div className="text-[10px] text-slate-500">{ord.paymentType}</div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="rounded bg-slate-100 border border-slate-200 px-2 py-0.5 font-bold text-slate-700">
+                                {ord.fulfillmentType || 'PICKUP'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`rounded px-2 py-0.5 text-[10px] font-bold border ${
+                                ord.status === 'COMPLETED'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                  : ord.status === 'PRINTING'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-300'
+                                  : 'bg-slate-100 text-slate-700 border-slate-300'
+                              }`}>
+                                {ord.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: SUBSCRIPTION PLANS */}
+          {activeTab === 'PLANS' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-heading text-sm font-bold text-slate-900">
+                    Platform Subscription Plans for Cyber Cafés
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Manage tier pricing, machine limits, and monthly quota allocations.
+                  </p>
+                </div>
 
                 <button
                   onClick={() => setShowAddPlanModal(true)}
-                  className="rounded-2xl border border-sky-500/30 bg-sky-950/20 p-5 text-left hover:bg-sky-950/30 transition flex items-center justify-between"
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition"
                 >
-                  <div>
-                    <h4 className="font-heading text-sm font-bold text-white">
-                      + Create Tier Plan
-                    </h4>
-                    <p className="text-xs text-sky-300 mt-0.5">
-                      Configure monthly tiers and fee rates
-                    </p>
-                  </div>
-                  <Layers className="h-6 w-6 text-sky-400 shrink-0" />
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('PLATFORM_FEES')}
-                  className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-5 text-left hover:bg-amber-950/30 transition flex items-center justify-between"
-                >
-                  <div>
-                    <h4 className="font-heading text-sm font-bold text-white">
-                      Configure Platform Fees
-                    </h4>
-                    <p className="text-xs text-amber-300 mt-0.5">
-                      Add order convenience fee after launch
-                    </p>
-                  </div>
-                  <BadgePercent className="h-6 w-6 text-amber-400 shrink-0" />
+                  + Add New Plan
                 </button>
               </div>
-            </div>
-          )}
 
-          {/* ========================================================
-              TAB 2: CYBER CAFÉ SHOPS & QR GENERATOR
-          ======================================================== */}
-          {activeTab === 'SHOPS' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {shops.map((shop) => {
-                  const isActive = shop.isActive !== false;
-                  return (
-                    <div
-                      key={shop._id || shop.id}
-                      className="glass-card rounded-3xl p-5 flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <h4 className="font-heading text-sm font-bold text-white line-clamp-1">
-                            {shop.name}
-                          </h4>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                              isActive
-                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                            }`}
-                          >
-                            {isActive ? 'Active' : 'Disabled'}
-                          </span>
-                        </div>
-
-                        <p className="text-xs text-slate-400 mb-3 line-clamp-2">
-                          {shop.address}
-                        </p>
-
-                        <div className="space-y-1 text-xs text-slate-300 mb-4">
-                          <div>Plan: <strong className="text-sky-400">{shop.activePlan}</strong></div>
-                          <div>Printers: <strong className="text-white">{shop.totalPrinters || 2}</strong></div>
-                          <div>UPI ID: <strong className="text-emerald-400">{shop.upiId || 'Not set'}</strong></div>
-                          <div>Total Revenue: <strong className="text-emerald-400">₹{(shop.totalRevenue || 0).toFixed(2)}</strong></div>
-                        </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {plans.map((p) => (
+                  <div key={p.planId || p._id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-between space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-heading text-sm font-bold text-slate-900">{p.name}</span>
+                        <span className="rounded bg-blue-50 border border-blue-200 text-blue-700 font-bold px-1.5 py-0.2 text-[10px]">
+                          {p.planId}
+                        </span>
                       </div>
 
-                      {/* Shop Actions: Desk QR, Edit, Pause/Activate, Delete */}
-                      <div className="border-t border-white/10 pt-3 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <button
-                            onClick={() => setSelectedQRShop(shop)}
-                            className="flex items-center gap-1.5 rounded-xl bg-sky-500/20 border border-sky-500/30 px-3 py-1.5 text-xs font-bold text-sky-400 hover:bg-sky-500/30 transition"
-                          >
-                            <QrCode className="h-3.5 w-3.5" />
-                            <span>Desk QR</span>
-                          </button>
+                      <div className="font-heading text-2xl font-black text-slate-900 mb-2">
+                        ₹{p.priceMonthly} <span className="text-xs font-normal text-slate-500">/ month</span>
+                      </div>
 
-                          <Link
-                            href={`/shop/${shop._id || shop.id}`}
-                            target="_blank"
-                            className="text-xs font-semibold text-slate-400 hover:text-white"
-                          >
-                            Open Shop →
-                          </Link>
+                      <p className="text-xs text-slate-600 mb-3">{p.description}</p>
+
+                      <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs space-y-1 text-slate-700">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Max Printers:</span>
+                          <strong>{p.maxPrinters}</strong>
                         </div>
-
-                        <div className="grid grid-cols-3 gap-1.5 pt-1">
-                          <button
-                            onClick={() => handleOpenEditShop(shop)}
-                            className="flex items-center justify-center gap-1 rounded-xl border border-sky-500/30 bg-sky-500/10 py-1.5 text-xs font-bold text-sky-300 hover:bg-sky-500/20 transition"
-                            title="Edit Shop Details"
-                          >
-                            <Pencil className="h-3 w-3" />
-                            <span>Edit</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleToggleShopActive(shop._id || shop.id, isActive)}
-                            className={`rounded-xl py-1.5 text-xs font-bold transition border ${
-                              isActive
-                                ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
-                                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
-                            }`}
-                          >
-                            {isActive ? 'Pause' : 'Activate'}
-                          </button>
-
-                          <button
-                            onClick={() => handleDeleteShop(shop._id || shop.id, shop.name)}
-                            className="flex items-center justify-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 py-1.5 text-xs font-bold text-rose-300 hover:bg-rose-500/20 transition"
-                            title="Delete Shop"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                            <span>Delete</span>
-                          </button>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Max Orders/Mo:</span>
+                          <strong>{p.maxOrdersPerMonth === 999999 ? 'Unlimited' : p.maxOrdersPerMonth}</strong>
                         </div>
                       </div>
                     </div>
-                  );
-                })}
+
+                    <div className="pt-2 border-t border-slate-100 flex justify-end">
+                      <button
+                        onClick={() => handleDeletePlan(p._id || p.planId, p.name)}
+                        className="text-xs font-bold text-rose-600 hover:bg-rose-50 px-2 py-1 rounded"
+                      >
+                        Delete Plan
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* ========================================================
-              TAB 3: MASTER ORDERS LOG
-          ======================================================== */}
-          {activeTab === 'ORDERS' && (
-            <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-6 backdrop-blur-xl">
-              <h3 className="font-heading text-base font-bold text-white mb-4">
-                Master Orders Spooler Log ({orders.length} total)
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="border-b border-white/10 text-[10px] uppercase font-bold text-slate-500">
-                    <tr>
-                      <th className="py-2.5">Order #</th>
-                      <th className="py-2.5">Customer</th>
-                      <th className="py-2.5">Shop</th>
-                      <th className="py-2.5">File</th>
-                      <th className="py-2.5">Specs</th>
-                      <th className="py-2.5">Amount</th>
-                      <th className="py-2.5">Payment</th>
-                      <th className="py-2.5">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {orders.map((o) => (
-                      <tr key={o._id || o.orderNumber}>
-                        <td className="py-2.5 font-mono text-purple-400">{o.orderNumber}</td>
-                        <td className="py-2.5 text-white font-semibold">{o.customerName}</td>
-                        <td className="py-2.5 text-slate-300">{o.shopName}</td>
-                        <td className="py-2.5 max-w-[140px] truncate">{o.fileName}</td>
-                        <td className="py-2.5 text-slate-400">
-                          {o.pageCount}p × {o.copies}c • {o.isColor ? 'Color' : 'B&W'}
-                        </td>
-                        <td className="py-2.5 font-bold text-emerald-400">₹{o.totalPrice?.toFixed(2)}</td>
-                        <td className="py-2.5">
-                          <span className="rounded px-1.5 py-0.5 text-[10px] font-bold bg-white/10 text-slate-300">
-                            {o.paymentType}
-                          </span>
-                        </td>
-                        <td className="py-2.5">
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                              o.status === 'COMPLETED'
-                                ? 'bg-emerald-500/20 text-emerald-400'
-                                : o.status === 'PRINTING'
-                                ? 'bg-cyan-500/20 text-cyan-400'
-                                : 'bg-amber-500/20 text-amber-400'
-                            }`}
-                          >
-                            {o.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* TAB 5: PLATFORM FEES & MONETIZATION */}
+          {activeTab === 'PLATFORM_FEES' && (
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm max-w-xl space-y-5">
+              <div className="border-b border-slate-200 pb-3">
+                <h3 className="font-heading text-base font-bold text-slate-900">
+                  User Order Platform Fee Settings
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Charge a convenience fee on customer print checkouts. This fee is automatically added to user payments after initial free trial months.
+                </p>
               </div>
-            </div>
-          )}
 
-          {/* ========================================================
-              TAB 4: SUBSCRIPTION PLANS & MONETIZATION TIERS
-          ======================================================== */}
-          {activeTab === 'PLANS' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {plans.map((plan) => {
-                  const isFreeLaunch = plan.name === 'Free Launch Plan' || plan.priceMonthly === 0;
-                  return (
-                    <div
-                      key={plan._id}
-                      className={`glass-card rounded-3xl p-6 flex flex-col justify-between transition ${
-                        isFreeLaunch
-                          ? 'border-emerald-500/40 bg-emerald-950/20 ring-1 ring-emerald-500/30'
-                          : 'border-white/10'
+              <form onSubmit={handleSavePlatformFees} className="space-y-4 text-xs">
+                <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50">
+                  <div>
+                    <span className="font-bold text-slate-900 block">Enable Platform Fee on User Orders</span>
+                    <span className="text-[11px] text-slate-500">
+                      When OFF, users pay exactly the cyber café's rate card with ₹0 convenience fee.
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={platformFeeEnabled}
+                    onChange={(e) => setPlatformFeeEnabled(e.target.checked)}
+                    className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-600 cursor-pointer"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-800 font-bold mb-1 block">
+                    Fee Calculation Type
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPlatformFeeType('FLAT')}
+                      className={`py-2 rounded-lg border text-xs font-bold transition shadow-sm ${
+                        platformFeeType === 'FLAT'
+                          ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                          : 'border-slate-300 bg-white text-slate-700'
                       }`}
                     >
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-3">
-                          <h4 className="font-heading text-lg font-bold text-white line-clamp-1">
-                            {plan.name}
-                          </h4>
-                          {isFreeLaunch ? (
-                            <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider shrink-0">
-                              Active For All Shops
-                            </span>
-                          ) : plan.isPopular ? (
-                            <span className="rounded-full bg-sky-500/20 border border-sky-500/30 px-2 py-0.5 text-[10px] font-bold text-sky-400 shrink-0">
-                              Popular
-                            </span>
-                          ) : null}
-                        </div>
-
-                        <div className="font-heading text-3xl font-black text-white mb-4">
-                          {plan.priceMonthly === 0 ? (
-                            <span className="text-emerald-400">FREE</span>
-                          ) : (
-                            <>
-                              ₹{plan.priceMonthly}{' '}
-                              <span className="text-xs text-slate-400 font-normal">/ month</span>
-                            </>
-                          )}
-                        </div>
-
-                        <ul className="space-y-2 text-xs text-slate-300 mb-6">
-                          {(plan.features || []).map((feat: string, i: number) => (
-                            <li key={i} className="flex items-center gap-2">
-                              <CheckCircle2 className={`h-3.5 w-3.5 shrink-0 ${isFreeLaunch ? 'text-emerald-400' : 'text-sky-400'}`} />
-                              <span>{feat}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div className="border-t border-white/10 pt-4 space-y-3">
-                        <div className="flex items-center justify-between text-[11px] text-slate-400">
-                          <span>Limit: <strong className="text-white">{plan.maxPrinters} printers</strong></span>
-                          <span>Fee: <strong className="text-sky-400">{plan.commissionRate}%</strong></span>
-                        </div>
-
-                        {/* Edit & Delete Action Buttons */}
-                        <div className="grid grid-cols-2 gap-2 pt-1">
-                          <button
-                            onClick={() => handleOpenEditPlan(plan)}
-                            className="flex items-center justify-center gap-1.5 rounded-xl border border-sky-500/40 bg-sky-500/15 py-2 text-xs font-bold text-sky-300 hover:bg-sky-500/25 hover:text-white transition shadow-sm"
-                            title="Edit Plan"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            <span>Edit</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleDeletePlan(plan._id, plan.name)}
-                            className="flex items-center justify-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-500/15 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/25 hover:text-white transition shadow-sm"
-                            title="Delete Plan"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            <span>Delete</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ========================================================
-              TAB 5: PLATFORM FEES & MONETIZATION SETTINGS (NEW)
-          ======================================================== */}
-          {activeTab === 'PLATFORM_FEES' && (
-            <div className="space-y-6">
-              <div className="rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-950/20 via-slate-900 to-slate-900 p-6 backdrop-blur-xl">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="h-10 w-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                    <BadgePercent className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-heading text-lg font-bold text-white">
-                      Customer Platform Convenience Fee
-                    </h3>
-                    <p className="text-xs text-slate-300">
-                      Configure a small convenience fee added to user print orders after the promotional launch months.
-                    </p>
+                      Flat Fee (₹ per order)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlatformFeeType('PERCENT')}
+                      className={`py-2 rounded-lg border text-xs font-bold transition shadow-sm ${
+                        platformFeeType === 'PERCENT'
+                          ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                          : 'border-slate-300 bg-white text-slate-700'
+                      }`}
+                    >
+                      Percentage (% of subtotal)
+                    </button>
                   </div>
                 </div>
 
-                <form onSubmit={handleSaveFeeSettings} className="mt-6 space-y-4 max-w-xl">
-                  {/* Enable / Disable Toggle */}
-                  <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-800/60 p-4">
-                    <div>
-                      <div className="text-xs font-bold text-white">Enable Platform Fee on User Orders</div>
-                      <div className="text-[11px] text-slate-400">
-                        {platformFeeEnabled
-                          ? 'Active — Customers will pay this fee at checkout (Retained by platform).'
-                          : 'Disabled — Currently 100% Free Launch offer (₹0 convenience fee for customers).'}
-                      </div>
-                    </div>
+                <div>
+                  <label className="text-slate-800 font-bold mb-1 block">
+                    Fee Amount {platformFeeType === 'FLAT' ? '(in ₹)' : '(in %)'} *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    required
+                    value={platformFeeAmount}
+                    onChange={(e) => setPlatformFeeAmount(parseFloat(e.target.value) || 0)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                  />
+                </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setPlatformFeeEnabled(!platformFeeEnabled)}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                        platformFeeEnabled ? 'bg-emerald-500' : 'bg-slate-700'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          platformFeeEnabled ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
+                <div>
+                  <label className="text-slate-800 font-bold mb-1 block">
+                    Fee Label Displayed to Customer
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={platformFeeLabel}
+                    onChange={(e) => setPlatformFeeLabel(e.target.value)}
+                    placeholder="e.g. Platform Convenience Fee"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                  />
+                </div>
 
-                  {/* Fee Type & Amount */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-semibold text-slate-300 mb-1.5 block">
-                        Fee Calculation Mode
-                      </label>
-                      <select
-                        value={platformFeeType}
-                        onChange={(e) => setPlatformFeeType(e.target.value as any)}
-                        className="w-full rounded-xl border border-white/10 bg-slate-800 px-3.5 py-2.5 text-xs text-white outline-none focus:border-amber-500"
-                      >
-                        <option value="FLAT">Flat Fee (Fixed ₹ Amount)</option>
-                        <option value="PERCENT">Percentage (% of Print Total)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-semibold text-slate-300 mb-1.5 block">
-                        {platformFeeType === 'FLAT' ? 'Fee Amount (₹)' : 'Fee Percentage (%)'}
-                      </label>
-                      <input
-                        type="number"
-                        step={platformFeeType === 'FLAT' ? '0.5' : '0.1'}
-                        min={0}
-                        max={100}
-                        value={platformFeeAmount}
-                        onChange={(e) => setPlatformFeeAmount(parseFloat(e.target.value) || 0)}
-                        placeholder={platformFeeType === 'FLAT' ? 'e.g. 2.00' : 'e.g. 2.5'}
-                        className="w-full rounded-xl border border-white/10 bg-slate-800 px-3.5 py-2.5 text-xs text-white outline-none focus:border-amber-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-300 mb-1.5 block">
-                      Checkout Display Label
-                    </label>
-                    <input
-                      type="text"
-                      value={platformFeeLabel}
-                      onChange={(e) => setPlatformFeeLabel(e.target.value)}
-                      placeholder="e.g. Platform Convenience Fee"
-                      className="w-full rounded-xl border border-white/10 bg-slate-800 px-3.5 py-2.5 text-xs text-white outline-none focus:border-amber-500"
-                    />
-                  </div>
-
-                  {/* Live Calculation Preview */}
-                  <div className="rounded-2xl border border-amber-500/20 bg-amber-950/20 p-4 space-y-2 text-xs">
-                    <span className="font-bold text-amber-400 uppercase text-[10px] tracking-wider block">
-                      Live Customer Checkout Preview
-                    </span>
-                    <div className="flex items-center justify-between text-slate-300">
-                      <span>Sample Print Order:</span>
-                      <span>₹20.00</span>
-                    </div>
-                    <div className="flex items-center justify-between text-amber-300">
-                      <span>{platformFeeLabel}:</span>
-                      <span>
-                        {platformFeeEnabled
-                          ? platformFeeType === 'FLAT'
-                            ? `+₹${platformFeeAmount.toFixed(2)}`
-                            : `+₹${((20 * platformFeeAmount) / 100).toFixed(2)}`
-                          : '₹0.00 (Launch Offer)'}
-                      </span>
-                    </div>
-                    <div className="border-t border-amber-500/20 pt-2 flex items-center justify-between font-bold text-white">
-                      <span>Customer Total Payable:</span>
-                      <span className="text-emerald-400">
-                        ₹
-                        {(
-                          20 +
-                          (platformFeeEnabled
-                            ? platformFeeType === 'FLAT'
-                              ? platformFeeAmount
-                              : (20 * platformFeeAmount) / 100
-                            : 0)
-                        ).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-
+                <div className="pt-2">
                   <button
                     type="submit"
                     disabled={savingFeeSettings}
-                    className="rounded-xl bg-amber-500 hover:bg-amber-400 px-6 py-2.5 text-xs font-bold text-slate-950 transition shadow-lg shadow-amber-500/20"
+                    className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition disabled:opacity-50"
                   >
-                    {savingFeeSettings ? 'Saving Settings...' : 'Save & Update Platform Fees'}
+                    {savingFeeSettings ? 'Saving Settings...' : 'Save Monetization Settings'}
                   </button>
-                </form>
-              </div>
+                </div>
+              </form>
             </div>
           )}
 
-          {/* ========================================================
-              TAB 6: PAYMENTS & FINANCIAL RECONCILIATION
-          ======================================================== */}
+          {/* TAB 6: PAYMENTS */}
           {activeTab === 'PAYMENTS' && (
-            <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-6 backdrop-blur-xl">
-              <h3 className="font-heading text-base font-bold text-white mb-4">
-                Platform Cash & Online Reconciliation Ledger
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="border-b border-white/10 text-[10px] uppercase font-bold text-slate-500">
-                    <tr>
-                      <th className="py-2.5">Txn ID</th>
-                      <th className="py-2.5">Order #</th>
-                      <th className="py-2.5">Shop</th>
-                      <th className="py-2.5">Total Amount</th>
-                      <th className="py-2.5">Admin Fee</th>
-                      <th className="py-2.5">Shop Share</th>
-                      <th className="py-2.5">Payment Method</th>
-                      <th className="py-2.5">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {payments.map((p) => (
-                      <tr key={p._id}>
-                        <td className="py-2.5 font-mono text-purple-400">{p._id}</td>
-                        <td className="py-2.5">{p.orderNumber}</td>
-                        <td className="py-2.5">{p.shopName}</td>
-                        <td className="py-2.5 font-bold text-white">₹{p.amount.toFixed(2)}</td>
-                        <td className="py-2.5 text-amber-400">₹{(p.adminCommission || 0).toFixed(2)}</td>
-                        <td className="py-2.5 font-bold text-emerald-400">
-                          ₹{(p.shopEarnings || p.amount).toFixed(2)}
-                        </td>
-                        <td className="py-2.5">{p.paymentType}</td>
-                        <td className="py-2.5">
-                          <span className="rounded-full bg-emerald-500/20 text-emerald-400 px-2 py-0.5 text-[10px] font-bold">
-                            {p.paymentStatus}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* ========================================================
-              TAB 7: USER ACCOUNTS
-          ======================================================== */}
-          {activeTab === 'USERS' && (
-            <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-6 backdrop-blur-xl">
-              <h3 className="font-heading text-base font-bold text-white mb-4">
-                Registered Platform Users ({users.length})
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="border-b border-white/10 text-[10px] uppercase font-bold text-slate-500">
-                    <tr>
-                      <th className="py-2.5">Name</th>
-                      <th className="py-2.5">Email</th>
-                      <th className="py-2.5">Phone</th>
-                      <th className="py-2.5">Role</th>
-                      <th className="py-2.5">Status</th>
-                      <th className="py-2.5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {users.map((u) => (
-                      <tr key={u.id}>
-                        <td className="py-2.5 font-bold text-white">{u.name}</td>
-                        <td className="py-2.5">{u.email}</td>
-                        <td className="py-2.5">{u.phone}</td>
-                        <td className="py-2.5">
-                          <span
-                            className={`rounded px-2 py-0.5 text-[10px] font-bold ${
-                              u.role === 'ADMIN'
-                                ? 'bg-purple-500/20 text-purple-400'
-                                : u.role === 'SHOP_OWNER'
-                                ? 'bg-emerald-500/20 text-emerald-400'
-                                : 'bg-sky-500/20 text-sky-400'
-                            }`}
-                          >
-                            {u.role}
-                          </span>
-                        </td>
-                        <td className="py-2.5">
-                          {u.isBlocked ? (
-                            <span className="text-rose-400 font-semibold">Suspended</span>
-                          ) : (
-                            <span className="text-emerald-400 font-semibold">Active</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {u.role !== 'ADMIN' && (
-                              <>
-                                <button
-                                  onClick={() => handleToggleBlockUser(u.id, u.isBlocked)}
-                                  className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
-                                    u.isBlocked
-                                      ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
-                                      : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
-                                  }`}
-                                >
-                                  {u.isBlocked ? 'Reactivate' : 'Suspend'}
-                                </button>
-
-                                <button
-                                  onClick={() => handleDeleteUser(u.id, u.name)}
-                                  className="rounded-lg p-1.5 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition"
-                                  title="Delete User"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* ========================================================
-              TAB 8: ADMIN TEAM & SECURITY (NEW)
-          ======================================================== */}
-          {activeTab === 'ADMINS' && (
-            <div className="space-y-6">
-              {/* Row 1: Profile & Credentials Update Form */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Edit Profile & Password Form */}
-                <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-6 backdrop-blur-xl">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-10 w-10 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
-                      <KeyRound className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-heading text-base font-bold text-white">
-                        Change Admin Profile & Password
-                      </h3>
-                      <p className="text-xs text-slate-400">
-                        Update your administrator credentials and security settings.
-                      </p>
-                    </div>
-                  </div>
-
-                  <form onSubmit={handleUpdateAdminProfile} className="space-y-3 text-xs">
-                    <div>
-                      <label className="text-slate-300 font-semibold mb-1 block">Full Name</label>
-                      <input
-                        type="text"
-                        required
-                        value={adminProfileName}
-                        onChange={(e) => setAdminProfileName(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-slate-300 font-semibold mb-1 block">Admin Email</label>
-                        <input
-                          type="email"
-                          required
-                          value={adminProfileEmail}
-                          onChange={(e) => setAdminProfileEmail(e.target.value)}
-                          className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-slate-300 font-semibold mb-1 block">Phone</label>
-                        <input
-                          type="text"
-                          value={adminProfilePhone}
-                          onChange={(e) => setAdminProfilePhone(e.target.value)}
-                          className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="border-t border-white/10 pt-3">
-                      <span className="text-[11px] font-bold text-purple-400 block mb-2">
-                        Change Password (Optional)
-                      </span>
-
-                      <div className="space-y-2.5">
-                        <div>
-                          <label className="text-slate-400 text-[11px] mb-1 block">Current Password</label>
-                          <input
-                            type="password"
-                            value={adminCurrentPassword}
-                            onChange={(e) => setAdminCurrentPassword(e.target.value)}
-                            placeholder="Enter current password"
-                            className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-slate-400 text-[11px] mb-1 block">New Password</label>
-                            <input
-                              type="password"
-                              value={adminNewPassword}
-                              onChange={(e) => setAdminNewPassword(e.target.value)}
-                              placeholder="Minimum 6 characters"
-                              className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-slate-400 text-[11px] mb-1 block">Confirm Password</label>
-                            <input
-                              type="password"
-                              value={adminConfirmPassword}
-                              onChange={(e) => setAdminConfirmPassword(e.target.value)}
-                              placeholder="Confirm new password"
-                              className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={savingAdminProfile}
-                      className="mt-3 w-full rounded-xl bg-purple-600 hover:bg-purple-500 py-2.5 text-xs font-bold text-white transition shadow-md shadow-purple-600/30"
-                    >
-                      {savingAdminProfile ? 'Saving Changes...' : 'Save & Update Credentials'}
-                    </button>
-                  </form>
+            <div className="space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-200">
+                  <h3 className="font-heading text-sm font-bold text-slate-900">
+                    Platform Master Payments Stream
+                  </h3>
                 </div>
-
-                {/* Provision New Administrator Quick Trigger */}
-                <div className="rounded-3xl border border-sky-500/30 bg-sky-950/20 p-6 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="h-10 w-10 rounded-2xl bg-sky-500/20 text-sky-400 flex items-center justify-center">
-                        <UserCheck className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <h3 className="font-heading text-base font-bold text-white">
-                          Provision New Administrator
-                        </h3>
-                        <p className="text-xs text-sky-300">
-                          Add trusted staff or partners with full Root Control permissions.
-                        </p>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-slate-300 leading-relaxed mt-4">
-                      Administrators have root control to onboard cyber cafés, monitor print queues, modify subscription plans, configure user convenience fees, and manage finances.
-                    </p>
-
-                    <div className="mt-4 rounded-2xl border border-sky-500/20 bg-slate-900/60 p-4 space-y-2 text-xs">
-                      <div className="flex items-center gap-2 text-sky-300">
-                        <CheckCircle2 className="h-4 w-4 shrink-0 text-sky-400" />
-                        <span>Instant login right at /khushi-admin/login</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sky-300">
-                        <CheckCircle2 className="h-4 w-4 shrink-0 text-sky-400" />
-                        <span>Full privileges across all platform hubs</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sky-300">
-                        <CheckCircle2 className="h-4 w-4 shrink-0 text-sky-400" />
-                        <span>Protected Root Admin account safe from accidental deletion</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setShowCreateAdminModal(true)}
-                    className="mt-6 w-full rounded-xl bg-sky-500 hover:bg-sky-400 py-2.5 text-xs font-bold text-white transition shadow-md shadow-sky-500/30 flex items-center justify-center gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Create New Administrator</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Row 2: All Administrators Table */}
-              <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-6 backdrop-blur-xl">
-                <h3 className="font-heading text-base font-bold text-white mb-4">
-                  Active Platform Administrators ({adminList.length})
-                </h3>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-300">
-                    <thead className="border-b border-white/10 text-[10px] uppercase font-bold text-slate-500">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                       <tr>
-                        <th className="py-2.5">Administrator</th>
-                        <th className="py-2.5">Email</th>
-                        <th className="py-2.5">Phone</th>
-                        <th className="py-2.5">Privilege Level</th>
-                        <th className="py-2.5 text-right">Actions</th>
+                        <th className="px-4 py-3">Txn ID</th>
+                        <th className="px-4 py-3">Order #</th>
+                        <th className="px-4 py-3">Amount</th>
+                        <th className="px-4 py-3">Method</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Date</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {adminList.map((ad) => (
-                        <tr key={ad.id || ad.email}>
-                          <td className="py-2.5 font-bold text-white flex items-center gap-2">
-                            <div className="h-7 w-7 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center text-xs font-bold">
-                              {ad.name?.charAt(0) || 'A'}
-                            </div>
-                            <span>{ad.name}</span>
+                    <tbody className="divide-y divide-slate-100">
+                      {payments.map((p) => (
+                        <tr key={p._id || p.id} className="hover:bg-slate-50/70 transition">
+                          <td className="px-4 py-3 font-mono text-slate-800">
+                            {p.paymentId || (p._id || p.id).slice(0, 8)}
                           </td>
-                          <td className="py-2.5">{ad.email}</td>
-                          <td className="py-2.5">{ad.phone || 'N/A'}</td>
-                          <td className="py-2.5">
-                            {ad.isRoot ? (
-                              <span className="rounded-full bg-purple-500/20 border border-purple-500/30 px-2.5 py-0.5 text-[10px] font-bold text-purple-300">
-                                Primary Root Admin
-                              </span>
-                            ) : (
-                              <span className="rounded-full bg-sky-500/20 border border-sky-500/30 px-2.5 py-0.5 text-[10px] font-bold text-sky-300">
-                                Administrator
-                              </span>
-                            )}
+                          <td className="px-4 py-3 font-bold text-slate-900">
+                            #{p.orderNumber || '-'}
                           </td>
-                          <td className="py-2.5 text-right">
-                            {!ad.isRoot && (
-                              <button
-                                onClick={() => handleDeleteUser(ad.id, ad.name)}
-                                className="rounded-lg p-1.5 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition"
-                                title="Revoke Admin Access"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            )}
+                          <td className="px-4 py-3 font-bold text-slate-900">
+                            ₹{p.amount?.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-slate-700">
+                            {p.paymentType}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="rounded bg-emerald-50 border border-emerald-300 text-emerald-700 px-2 py-0.5 text-[10px] font-bold">
+                              {p.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-slate-500">
+                            {new Date(p.createdAt || Date.now()).toLocaleDateString()}
                           </td>
                         </tr>
                       ))}
@@ -1730,420 +1208,387 @@ export default function KhushiAdminPage() {
               </div>
             </div>
           )}
+
+          {/* TAB 7: USERS */}
+          {activeTab === 'USERS' && (
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                placeholder="Search users by name or email..."
+                className="rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-blue-600 w-full sm:w-80 shadow-sm"
+              />
+
+              <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      <tr>
+                        <th className="px-4 py-3">Name</th>
+                        <th className="px-4 py-3">Email</th>
+                        <th className="px-4 py-3">Phone</th>
+                        <th className="px-4 py-3">Role</th>
+                        <th className="px-4 py-3">Joined Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {users
+                        .filter((u) => u.name?.toLowerCase().includes(userSearch.toLowerCase()) || u.email?.toLowerCase().includes(userSearch.toLowerCase()))
+                        .map((u) => (
+                          <tr key={u._id || u.id} className="hover:bg-slate-50/70 transition">
+                            <td className="px-4 py-3 font-bold text-slate-900">
+                              {u.name}
+                            </td>
+                            <td className="px-4 py-3 font-mono text-slate-700">
+                              {u.email}
+                            </td>
+                            <td className="px-4 py-3 text-slate-600">
+                              {u.phone || '-'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`rounded px-2 py-0.5 text-[10px] font-bold border ${
+                                u.role === 'ADMIN'
+                                  ? 'bg-purple-50 text-purple-700 border-purple-300'
+                                  : u.role === 'SHOP_OWNER'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-300'
+                                  : 'bg-slate-100 text-slate-700 border-slate-300'
+                              }`}>
+                                {u.role}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-slate-500">
+                              {new Date(u.createdAt || Date.now()).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 8: ADMINS */}
+          {activeTab === 'ADMINS' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Form to update current admin profile / password */}
+              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+                <div className="border-b border-slate-200 pb-3">
+                  <h3 className="font-heading text-sm font-bold text-slate-900">
+                    My Administrator Profile & Password
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Change your super admin display name, email, or master password.
+                  </p>
+                </div>
+
+                <form onSubmit={handleUpdateAdminProfile} className="space-y-3 text-xs">
+                  <div>
+                    <label className="text-slate-800 font-bold mb-1 block">Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={adminProfileName}
+                      onChange={(e) => setAdminProfileName(e.target.value)}
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-slate-800 font-bold mb-1 block">Admin Email (Login ID)</label>
+                    <input
+                      type="email"
+                      required
+                      value={adminProfileEmail}
+                      onChange={(e) => setAdminProfileEmail(e.target.value)}
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-slate-800 font-bold mb-1 block">Current Password (To Confirm Changes) *</label>
+                    <input
+                      type="password"
+                      required
+                      value={adminCurrentPassword}
+                      onChange={(e) => setAdminCurrentPassword(e.target.value)}
+                      placeholder="Enter current password"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-slate-800 font-bold mb-1 block">New Password (Optional)</label>
+                      <input
+                        type="password"
+                        value={adminNewPassword}
+                        onChange={(e) => setAdminNewPassword(e.target.value)}
+                        placeholder="Leave blank to keep current"
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-800 font-bold mb-1 block">Confirm New Password</label>
+                      <input
+                        type="password"
+                        value={adminConfirmPassword}
+                        onChange={(e) => setAdminConfirmPassword(e.target.value)}
+                        placeholder="Repeat new password"
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={savingAdminProfile}
+                      className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition disabled:opacity-50"
+                    >
+                      {savingAdminProfile ? 'Updating Credentials...' : 'Save Admin Credentials'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* List of Admins & Create New Admin */}
+              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                  <div>
+                    <h3 className="font-heading text-sm font-bold text-slate-900">
+                      Super Administrator Accounts
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Members with full root console access.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setShowCreateAdminModal(true)}
+                    className="rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm"
+                  >
+                    + Add New Admin
+                  </button>
+                </div>
+
+                {newAdminCredentialsNotice && (
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs space-y-1">
+                    <span className="font-bold text-emerald-900">New Admin Created:</span>
+                    <div className="font-mono text-slate-800">Email: {newAdminCredentialsNotice.email}</div>
+                    <div className="font-mono text-slate-800">Password: {newAdminCredentialsNotice.password}</div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {adminList.map((adm) => (
+                    <div key={adm._id || adm.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-bold text-slate-900 block">{adm.name}</span>
+                        <span className="font-mono text-slate-500 text-[11px]">{adm.email}</span>
+                      </div>
+                      <span className="rounded bg-purple-50 border border-purple-200 text-purple-700 font-bold px-2 py-0.5 text-[10px]">
+                        Super Admin
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
 
-      {/* ========================================================
-          MODALS
-      ======================================================== */}
-
-      {/* Modal 1: Create New Admin */}
-      {showCreateAdminModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="relative w-full max-w-md rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl">
-            <button
-              onClick={() => setShowCreateAdminModal(false)}
-              className="absolute right-4 top-4 rounded-full bg-white/5 p-2 text-slate-400 hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
-
-            <h3 className="font-heading text-lg font-bold text-white mb-1">
-              Create New Administrator
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Provision an administrator with full Root Control permissions.
-            </p>
-
-            <form onSubmit={handleCreateNewAdmin} className="space-y-3 text-xs">
-              <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={newAdminName}
-                  onChange={(e) => setNewAdminName(e.target.value)}
-                  placeholder="e.g. Rahul Verma"
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Admin Email</label>
-                <input
-                  type="email"
-                  required
-                  value={newAdminEmail}
-                  onChange={(e) => setNewAdminEmail(e.target.value)}
-                  placeholder="e.g. rahul@printporter.com"
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Phone Number</label>
-                <input
-                  type="text"
-                  required
-                  value={newAdminPhone}
-                  onChange={(e) => setNewAdminPhone(e.target.value)}
-                  placeholder="+91 98765 00000"
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Initial Password</label>
-                <input
-                  type="text"
-                  required
-                  value={newAdminPassword}
-                  onChange={(e) => setNewAdminPassword(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={creatingAdmin}
-                className="mt-4 w-full rounded-xl bg-purple-600 hover:bg-purple-500 py-2.5 text-xs font-bold text-white transition"
-              >
-                {creatingAdmin ? 'Creating Administrator...' : 'Provision Administrator Account'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal 2: Admin Created Credentials Card */}
-      {newAdminCredentialsNotice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="relative w-full max-w-sm rounded-3xl border border-purple-500/30 bg-slate-900 p-6 shadow-2xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-500/20 text-purple-400">
-                <Shield className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="font-heading text-lg font-bold text-white">
-                  Administrator Created!
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Provide these credentials to the new admin
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-slate-800/80 p-4 space-y-3 font-mono text-xs">
-              <div>
-                <span className="text-slate-400 text-[10px] uppercase block font-sans">
-                  Admin Name
-                </span>
-                <span className="text-white font-bold">{newAdminCredentialsNotice.name}</span>
-              </div>
-
-              <div>
-                <span className="text-slate-400 text-[10px] uppercase block font-sans">
-                  Email
-                </span>
-                <span className="text-white font-bold">{newAdminCredentialsNotice.email}</span>
-              </div>
-
-              <div>
-                <span className="text-slate-400 text-[10px] uppercase block font-sans">
-                  Generated Password
-                </span>
-                <span className="text-emerald-400 font-bold">{newAdminCredentialsNotice.password}</span>
-              </div>
-
-              <div>
-                <span className="text-slate-400 text-[10px] uppercase block font-sans">
-                  Admin Login URL
-                </span>
-                <span className="text-sky-400 truncate block">/khushi-admin/login</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setNewAdminCredentialsNotice(null)}
-              className="mt-6 w-full rounded-xl bg-purple-600 py-2.5 text-xs font-bold text-white hover:bg-purple-500 transition"
-            >
-              Done & Save
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal 3: Register New Shop */}
+      {/* MODAL: Register New Cyber Café Shop */}
       {showRegisterShopModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="relative w-full max-w-md rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl">
-            <button
-              onClick={() => setShowRegisterShopModal(false)}
-              className="absolute right-4 top-4 rounded-full bg-white/5 p-2 text-slate-400 hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-heading text-sm font-bold text-slate-900">
+                Add New Cyber Café Shop
+              </h3>
+              <button
+                onClick={() => setShowRegisterShopModal(false)}
+                className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200"
+              >
+                Close
+              </button>
+            </div>
 
-            <h3 className="font-heading text-lg font-bold text-white mb-1">
-              Register New Printer Shop
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Add a partner cyber café hub and generate owner credentials.
-            </p>
-
-            <form onSubmit={handleRegisterShop} className="space-y-3 text-xs">
+            <form onSubmit={handleCreateShop} className="space-y-3 text-xs">
               <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Shop Name</label>
+                <label className="text-slate-800 font-bold mb-1 block">Shop Name *</label>
                 <input
                   type="text"
                   required
+                  placeholder="e.g. Apex Digital Print Hub"
                   value={shopName}
                   onChange={(e) => setShopName(e.target.value)}
-                  placeholder="e.g. Apex Print & Cyber Hub"
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-800 font-bold mb-1 block">Full Address *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Shop 12, Block B, Sector 18, Noida"
+                  value={shopAddress}
+                  onChange={(e) => setShopAddress(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-slate-300 font-semibold mb-1 block">Owner Name</label>
+                  <label className="text-slate-800 font-bold mb-1 block">Owner Name</label>
                   <input
                     type="text"
-                    required
+                    placeholder="e.g. Rajesh Kumar"
                     value={ownerName}
                     onChange={(e) => setOwnerName(e.target.value)}
-                    placeholder="e.g. Rajesh Kumar"
-                    className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
                   />
                 </div>
                 <div>
-                  <label className="text-slate-300 font-semibold mb-1 block">Phone</label>
+                  <label className="text-slate-800 font-bold mb-1 block">Owner Phone</label>
                   <input
-                    type="text"
-                    required
+                    type="tel"
+                    placeholder="+91 98765 43210"
                     value={ownerPhone}
                     onChange={(e) => setOwnerPhone(e.target.value)}
-                    placeholder="+91 98111 22334"
-                    className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Owner Email (Login ID)</label>
+                <label className="text-slate-800 font-bold mb-1 block">Owner Login Email *</label>
                 <input
                   type="email"
                   required
+                  placeholder="owner@apexprint.com"
                   value={ownerEmail}
                   onChange={(e) => setOwnerEmail(e.target.value)}
-                  placeholder="owner@cyberprint.com"
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
                 />
               </div>
 
               <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Initial Password</label>
+                <label className="text-slate-800 font-bold mb-1 block">Initial Password *</label>
                 <input
                   type="text"
                   required
-                  value={ownerPassword}
-                  onChange={(e) => setOwnerPassword(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
+                  value={initialPassword}
+                  onChange={(e) => setInitialPassword(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 font-mono outline-none focus:border-blue-600 shadow-sm"
                 />
               </div>
 
-              <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Full Address</label>
-                <textarea
-                  rows={2}
-                  required
-                  value={shopAddress}
-                  onChange={(e) => setShopAddress(e.target.value)}
-                  placeholder="Shop No. 12, Metro Commercial Complex, Sector 18"
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 p-2.5 text-white outline-none focus:border-purple-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Subscription Plan</label>
-                <select
-                  value={activePlan}
-                  onChange={(e) => setActivePlan(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRegisterShopModal(false)}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-bold text-slate-700 hover:bg-slate-50 shadow-sm"
                 >
-                  <option value="Free Launch Plan">Free Launch Plan (FREE - Active for all)</option>
-                  {plans.filter(p => p.name !== 'Free Launch Plan').map((p) => (
-                    <option key={p._id || p.name} value={p.name}>
-                      {p.name} (₹{p.priceMonthly}/mo)
-                    </option>
-                  ))}
-                </select>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingShop}
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2 font-bold text-white shadow-sm disabled:opacity-50"
+                >
+                  {submittingShop ? 'Registering...' : 'Register Shop'}
+                </button>
               </div>
-
-              <button
-                type="submit"
-                className="mt-4 w-full rounded-xl bg-purple-600 py-2.5 text-xs font-bold text-white hover:bg-purple-500 transition"
-              >
-                Register & Generate Desk QR Code
-              </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Modal 4: Shop Owner Credentials Notice */}
-      {newCredentialsNotice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="relative w-full max-w-sm rounded-3xl border border-emerald-500/30 bg-slate-900 p-6 shadow-2xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400">
-                <KeyRound className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="font-heading text-lg font-bold text-white">
-                  Shop Owner Created!
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Provide these credentials to the cyber café owner
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-slate-800/80 p-4 space-y-3 font-mono text-xs">
-              <div>
-                <span className="text-slate-400 text-[10px] uppercase block font-sans">
-                  Owner Email
-                </span>
-                <span className="text-white font-bold">{newCredentialsNotice.email}</span>
-              </div>
-
-              <div>
-                <span className="text-slate-400 text-[10px] uppercase block font-sans">
-                  Generated Password
-                </span>
-                <span className="text-emerald-400 font-bold">{newCredentialsNotice.password}</span>
-              </div>
-
-              <div>
-                <span className="text-slate-400 text-[10px] uppercase block font-sans">
-                  Owner Terminal URL
-                </span>
-                <span className="text-sky-400 truncate block">/printer/login</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setNewCredentialsNotice(null)}
-              className="mt-6 w-full rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition"
-            >
-              Done & Save Credentials
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal 5: Edit Shop Modal */}
+      {/* MODAL: Edit Shop */}
       {showEditShopModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="relative w-full max-w-md rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl">
-            <button
-              onClick={() => setShowEditShopModal(false)}
-              className="absolute right-4 top-4 rounded-full bg-white/5 p-2 text-slate-400 hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-heading text-sm font-bold text-slate-900">
+                Edit Cyber Café Shop
+              </h3>
+              <button
+                onClick={() => setShowEditShopModal(false)}
+                className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200"
+              >
+                Close
+              </button>
+            </div>
 
-            <h3 className="font-heading text-lg font-bold text-white mb-1">
-              Edit Cyber Café Shop
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Update shop location, active tier, and direct UPI configuration.
-            </p>
-
-            <form onSubmit={handleUpdateShop} className="space-y-3 text-xs">
+            <form onSubmit={handleUpdateShopDetails} className="space-y-3 text-xs">
               <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Shop Name</label>
+                <label className="text-slate-800 font-bold mb-1 block">Shop Name *</label>
                 <input
                   type="text"
                   required
                   value={editShopName}
                   onChange={(e) => setEditShopName(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
                 />
               </div>
 
               <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Physical Address</label>
+                <label className="text-slate-800 font-bold mb-1 block">Address *</label>
                 <input
                   type="text"
                   required
                   value={editShopAddress}
                   onChange={(e) => setEditShopAddress(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-slate-300 font-semibold mb-1 block">Contact Phone</label>
+                  <label className="text-slate-800 font-bold mb-1 block">Owner Name</label>
                   <input
                     type="text"
-                    required
-                    value={editShopPhone}
-                    onChange={(e) => setEditShopPhone(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
+                    value={editShopOwnerName}
+                    onChange={(e) => setEditShopOwnerName(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
                   />
                 </div>
                 <div>
-                  <label className="text-slate-300 font-semibold mb-1 block">Starting Price (₹)</label>
+                  <label className="text-slate-800 font-bold mb-1 block">Owner Phone</label>
                   <input
-                    type="number"
-                    min={1}
-                    required
-                    value={editShopStartingPrice}
-                    onChange={(e) => setEditShopStartingPrice(Number(e.target.value))}
-                    className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
+                    type="tel"
+                    value={editShopOwnerPhone}
+                    onChange={(e) => setEditShopOwnerPhone(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Active Plan</label>
-                <select
-                  value={editShopPlan}
-                  onChange={(e) => setEditShopPlan(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
-                >
-                  {plans.map((p) => (
-                    <option key={p._id || p.name} value={p.name}>
-                      {p.name} ({p.priceMonthly === 0 ? 'FREE' : `₹${p.priceMonthly}/mo`})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Shop UPI ID</label>
+                <label className="text-slate-800 font-bold mb-1 block">Shop UPI ID</label>
                 <input
                   type="text"
-                  placeholder="e.g. apexprint@oksbi"
                   value={editShopUpiId}
                   onChange={(e) => setEditShopUpiId(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 font-mono outline-none focus:border-blue-600 shadow-sm"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowEditShopModal(false)}
-                  className="rounded-xl border border-white/10 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300 hover:text-white"
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-bold text-slate-700 hover:bg-slate-50 shadow-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-purple-600 px-5 py-2 text-xs font-bold text-white hover:bg-purple-500 transition"
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2 font-bold text-white shadow-sm"
                 >
                   Save Changes
                 </button>
@@ -2153,215 +1598,201 @@ export default function KhushiAdminPage() {
         </div>
       )}
 
-      {/* Modal 6: Create Subscription Plan */}
-      {showAddPlanModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="relative w-full max-w-md rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl">
+      {/* MODAL: Shop Standee QR Preview */}
+      {showQRModal && selectedQRShop && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
             <button
-              onClick={() => setShowAddPlanModal(false)}
-              className="absolute right-4 top-4 rounded-full bg-white/5 p-2 text-slate-400 hover:text-white"
+              onClick={() => setShowQRModal(false)}
+              className="absolute right-4 top-4 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200"
             >
-              <X className="h-4 w-4" />
+              Close
             </button>
-
-            <h3 className="font-heading text-lg font-bold text-white mb-1">
-              Add New Subscription Plan
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Configure tiered partner fees, machine limits, and commissions.
-            </p>
-
-            <form onSubmit={handleCreatePlan} className="space-y-3 text-xs">
-              <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Plan Name</label>
-                <input
-                  type="text"
-                  required
-                  value={planName}
-                  onChange={(e) => setPlanName(e.target.value)}
-                  placeholder="e.g. Growth Hub Tier"
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-slate-300 font-semibold mb-1 block">Monthly Price (₹)</label>
-                  <input
-                    type="number"
-                    required
-                    min={0}
-                    value={planPrice}
-                    onChange={(e) => setPlanPrice(Number(e.target.value))}
-                    className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-slate-300 font-semibold mb-1 block">Max Printers</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    value={planPrinters}
-                    onChange={(e) => setPlanPrinters(Number(e.target.value))}
-                    className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Platform Commission Fee (%)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min={0}
-                  max={50}
-                  value={planCommission}
-                  onChange={(e) => setPlanCommission(Number(e.target.value))}
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-purple-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Features (One per line)</label>
-                <textarea
-                  rows={3}
-                  value={planFeatures}
-                  onChange={(e) => setPlanFeatures(e.target.value)}
-                  placeholder="Up to 4 connected printers&#10;Direct Shop UPI payments&#10;Priority 24/7 support"
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 p-2.5 text-white outline-none focus:border-purple-500"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="mt-4 w-full rounded-xl bg-purple-600 py-2.5 text-xs font-bold text-white hover:bg-purple-500 transition"
-              >
-                Create & Publish Plan
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal 7: Edit Subscription Plan */}
-      {showEditPlanModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="relative w-full max-w-md rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl">
-            <button
-              onClick={() => setShowEditPlanModal(false)}
-              className="absolute right-4 top-4 rounded-full bg-white/5 p-2 text-slate-400 hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
-
-            <h3 className="font-heading text-lg font-bold text-white mb-1">
-              Edit Subscription Plan
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Update pricing, machine limits, and features for this plan.
-            </p>
-
-            <form onSubmit={handleUpdatePlan} className="space-y-3 text-xs">
-              <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Plan Name</label>
-                <input
-                  type="text"
-                  required
-                  value={editPlanName}
-                  onChange={(e) => setEditPlanName(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-sky-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-slate-300 font-semibold mb-1 block">Monthly Price (₹)</label>
-                  <input
-                    type="number"
-                    required
-                    min={0}
-                    value={editPlanPrice}
-                    onChange={(e) => setEditPlanPrice(Number(e.target.value))}
-                    className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-sky-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-slate-300 font-semibold mb-1 block">Max Printers</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    value={editPlanPrinters}
-                    onChange={(e) => setEditPlanPrinters(Number(e.target.value))}
-                    className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-sky-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Platform Commission Fee (%)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min={0}
-                  max={50}
-                  value={editPlanCommission}
-                  onChange={(e) => setEditPlanCommission(Number(e.target.value))}
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-white outline-none focus:border-sky-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-slate-300 font-semibold mb-1 block">Features (One per line)</label>
-                <textarea
-                  rows={4}
-                  value={editPlanFeatures}
-                  onChange={(e) => setEditPlanFeatures(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-slate-800 p-2.5 text-white outline-none focus:border-sky-500"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowEditPlanModal(false)}
-                  className="rounded-xl border border-white/10 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300 hover:text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-sky-500 px-5 py-2 text-xs font-bold text-white hover:bg-sky-400 transition"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal 8: View/Download Desk QR Code */}
-      {selectedQRShop && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="relative w-full max-w-sm">
-            <button
-              onClick={() => setSelectedQRShop(null)}
-              className="absolute -top-12 right-0 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
             <QRCodeCard
               shopId={selectedQRShop._id || selectedQRShop.id}
               shopName={selectedQRShop.name}
-              address={selectedQRShop.address}
-              phone={selectedQRShop.phone}
-              qrDataUrl={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
+              qrDataUrl={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
                 `${typeof window !== 'undefined' ? window.location.origin : ''}/shop/${selectedQRShop._id || selectedQRShop.id}`
               )}`}
+              address={selectedQRShop.address}
             />
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Create New Super Admin */}
+      {showCreateAdminModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-heading text-sm font-bold text-slate-900">
+                Create New Super Admin
+              </h3>
+              <button
+                onClick={() => setShowCreateAdminModal(false)}
+                className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200"
+              >
+                Close
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAdmin} className="space-y-3 text-xs">
+              <div>
+                <label className="text-slate-800 font-bold mb-1 block">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Khushi Aggarwal"
+                  value={newAdminName}
+                  onChange={(e) => setNewAdminName(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-800 font-bold mb-1 block">Email (Login ID) *</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="khushi@printporter.com"
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-800 font-bold mb-1 block">Phone Number</label>
+                <input
+                  type="tel"
+                  placeholder="+91 98765 43210"
+                  value={newAdminPhone}
+                  onChange={(e) => setNewAdminPhone(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-800 font-bold mb-1 block">Initial Password *</label>
+                <input
+                  type="text"
+                  required
+                  value={newAdminPassword}
+                  onChange={(e) => setNewAdminPassword(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 font-mono outline-none focus:border-blue-600 shadow-sm"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateAdminModal(false)}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-bold text-slate-700 hover:bg-slate-50 shadow-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingAdmin}
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2 font-bold text-white shadow-sm disabled:opacity-50"
+                >
+                  {creatingAdmin ? 'Creating...' : 'Create Super Admin'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Add Plan */}
+      {showAddPlanModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-heading text-sm font-bold text-slate-900">
+                Create Platform Subscription Plan
+              </h3>
+              <button
+                onClick={() => setShowAddPlanModal(false)}
+                className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200"
+              >
+                Close
+              </button>
+            </div>
+
+            <form onSubmit={handleCreatePlan} className="space-y-3 text-xs">
+              <div>
+                <label className="text-slate-800 font-bold mb-1 block">Plan Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Enterprise Cyber Hub"
+                  value={planName}
+                  onChange={(e) => setPlanName(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-800 font-bold mb-1 block">Price ₹/mo *</label>
+                  <input
+                    type="number"
+                    required
+                    value={planPriceMonthly}
+                    onChange={(e) => setPlanPriceMonthly(parseFloat(e.target.value) || 0)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-800 font-bold mb-1 block">Max Printers *</label>
+                  <input
+                    type="number"
+                    required
+                    value={planMaxPrinters}
+                    onChange={(e) => setPlanMaxPrinters(parseInt(e.target.value, 10) || 1)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-slate-800 font-bold mb-1 block">Max Orders/Month</label>
+                <input
+                  type="number"
+                  value={planMaxOrders}
+                  onChange={(e) => setPlanMaxOrders(parseInt(e.target.value, 10) || 1000)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-800 font-bold mb-1 block">Description</label>
+                <textarea
+                  rows={2}
+                  value={planDescription}
+                  onChange={(e) => setPlanDescription(e.target.value)}
+                  placeholder="Best suited for college campus & busy cyber cafés"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddPlanModal(false)}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-bold text-slate-700 hover:bg-slate-50 shadow-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2 font-bold text-white shadow-sm"
+                >
+                  Publish Plan
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
