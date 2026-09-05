@@ -129,6 +129,10 @@ export async function PATCH(
       };
     }
 
+    if (body.name !== undefined) shop.name = String(body.name);
+    if (body.address !== undefined) shop.address = String(body.address);
+    if (body.phone !== undefined) shop.phone = String(body.phone);
+    if (body.startingPrice !== undefined) shop.startingPrice = Number(body.startingPrice);
     if (body.upiId !== undefined) shop.upiId = String(body.upiId);
     if (body.upiQrUrl !== undefined) shop.upiQrUrl = String(body.upiQrUrl);
     if (body.activePlan !== undefined) shop.activePlan = String(body.activePlan);
@@ -143,6 +147,10 @@ export async function PATCH(
     if (!isFallback) {
       try {
         await Shop.findByIdAndUpdate(shop._id, {
+          name: shop.name,
+          address: shop.address,
+          phone: shop.phone,
+          startingPrice: shop.startingPrice,
           pricingRates: shop.pricingRates,
           upiId: shop.upiId,
           upiQrUrl: shop.upiQrUrl,
@@ -164,6 +172,55 @@ export async function PATCH(
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Failed to update shop' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE: Allow Super Admin to delete shop and associated printers
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const authResult = authorize(req, ['ADMIN']);
+    if (authResult.error) {
+      return NextResponse.json(
+        { error: authResult.error },
+        { status: authResult.status }
+      );
+    }
+
+    const { isFallback } = await connectDB();
+    const shopId = params.id;
+
+    const shopIndex = memoryStore.shops.findIndex(
+      (s) => s._id.toString() === shopId
+    );
+
+    if (shopIndex === -1) {
+      return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
+    }
+
+    memoryStore.shops.splice(shopIndex, 1);
+    memoryStore.printers = memoryStore.printers.filter((p) => p.shopId !== shopId);
+
+    if (!isFallback) {
+      try {
+        await Shop.findByIdAndDelete(shopId);
+        await Printer.deleteMany({ shopId });
+      } catch (err) {
+        console.warn('DB delete error in shop DELETE:', err);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Shop removed successfully',
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || 'Failed to delete shop' },
       { status: 500 }
     );
   }

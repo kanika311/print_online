@@ -72,6 +72,10 @@ export default function PrinterDashboardPage() {
   const [uploadingQr, setUploadingQr] = useState(false);
   const [savingUpi, setSavingUpi] = useState(false);
 
+  // Subscription Plans
+  const [availablePlans, setAvailablePlans] = useState<any[]>([]);
+  const [updatingPlan, setUpdatingPlan] = useState(false);
+
   // Link New Printer modal state
   const [showAddPrinterModal, setShowAddPrinterModal] = useState(false);
   const [newPrinterName, setNewPrinterName] = useState('');
@@ -167,6 +171,13 @@ export default function PrinterDashboardPage() {
       if (analyticsRes.ok) {
         const analyticsData = await analyticsRes.json();
         setAnalytics(analyticsData);
+      }
+
+      // 5. Fetch All Platform Plans
+      const plansRes = await fetch('/api/plans');
+      if (plansRes.ok) {
+        const plansData = await plansRes.json();
+        setAvailablePlans(plansData.plans || []);
       }
     } catch (e) {
       console.warn('Dashboard data fetch error:', e);
@@ -508,41 +519,226 @@ export default function PrinterDashboardPage() {
   const currentlyPrintingJob = orders.find((o) => o.status === 'PRINTING');
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0a0e17] text-slate-100">
+    <div className="min-h-screen flex bg-[#070b13] text-slate-100 selection:bg-emerald-500 selection:text-slate-950">
       {/* Toast Notification Banner */}
       {toastMessage && (
-        <div className="fixed top-4 right-4 z-50 rounded-2xl bg-emerald-500 text-slate-950 font-bold px-4 py-3 shadow-2xl flex items-center gap-2 animate-in slide-in-from-top-4">
+        <div className="fixed top-5 right-5 z-50 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold px-4 py-3 shadow-2xl flex items-center gap-2 animate-in slide-in-from-top-4">
           <Bell className="h-4 w-4" />
-          <span>{toastMessage}</span>
+          <span className="text-xs">{toastMessage}</span>
         </div>
       )}
 
-      {/* Terminal Top Navigation Bar */}
-      <header className="border-b border-white/10 bg-slate-900/90 backdrop-blur-xl sticky top-0 z-30">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white shadow-lg shadow-emerald-500/25">
-              <Printer className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-heading text-lg font-black text-white">
-                  {shop?.name || 'Printer Shop Owner'}
-                </h1>
-                <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                  Shop Terminal
-                </span>
+      {/* ========================================================
+          1. MODERN FIXED LEFT SIDEBAR PANEL FOR SHOP TERMINAL
+      ======================================================== */}
+      <aside className="w-64 lg:w-72 border-r border-white/10 bg-[#090e18] flex flex-col justify-between shrink-0 sticky top-0 h-screen z-40">
+        <div className="flex flex-col flex-1 overflow-y-auto">
+          {/* Brand & Shop Header */}
+          <div className="p-5 border-b border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 font-black shadow-lg shadow-emerald-500/25 shrink-0">
+                <Printer className="h-5 w-5 text-slate-950" />
               </div>
-              <p className="text-[11px] text-slate-400">
-                Logged in as {currentUser?.name} ({currentUser?.email})
-              </p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-heading text-sm font-black text-white truncate" title={shop?.name}>
+                    {shop?.name || 'Printer Terminal'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="rounded-md bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.2 text-[9px] font-extrabold text-emerald-400 uppercase">
+                    Shop Terminal
+                  </span>
+                  <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Online
+                  </span>
+                </div>
+              </div>
             </div>
+          </div>
+
+          {/* Sidebar Navigation Items */}
+          <nav className="p-3 space-y-1 text-xs font-semibold">
+            {/* 1. Print Queue & Incoming Orders */}
+            <button
+              onClick={() => setActiveTab('QUEUE')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+                activeTab === 'QUEUE'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Clock className="h-4 w-4 shrink-0 text-sky-400" />
+                <span>Print Queue & Orders</span>
+              </div>
+              {(pendingCashOrders.length > 0 || activeQueueOrders.length > 0) && (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    pendingCashOrders.length > 0
+                      ? 'bg-amber-500 text-slate-950 animate-pulse'
+                      : 'bg-white/10 text-white'
+                  }`}
+                >
+                  {pendingCashOrders.length + activeQueueOrders.length}
+                </span>
+              )}
+            </button>
+
+            {/* 2. Connected Printer Fleet */}
+            <button
+              onClick={() => setActiveTab('FLEET')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+                activeTab === 'FLEET'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Printer className="h-4 w-4 shrink-0 text-purple-400" />
+                <span>Connected Fleet</span>
+              </div>
+              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px]">
+                {printers.length}
+              </span>
+            </button>
+
+            {/* 3. Shop UPI & QR Payments */}
+            <button
+              onClick={() => setActiveTab('UPI_PAYMENT')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+                activeTab === 'UPI_PAYMENT'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <QrCode className="h-4 w-4 shrink-0 text-cyan-400" />
+                <span>Shop UPI & QR Setup</span>
+              </div>
+            </button>
+
+            {/* 4. Pricing Rates */}
+            <button
+              onClick={() => setActiveTab('PRICING')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+                activeTab === 'PRICING'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Sliders className="h-4 w-4 shrink-0 text-amber-400" />
+                <span>Pricing Rates</span>
+              </div>
+            </button>
+
+            {/* 5. Payments & Cash Ledger */}
+            <button
+              onClick={() => setActiveTab('REVENUE')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+                activeTab === 'REVENUE'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <DollarSign className="h-4 w-4 shrink-0 text-emerald-400" />
+                <span>Payments & Cash Ledger</span>
+              </div>
+              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px]">
+                {payments.length}
+              </span>
+            </button>
+
+            {/* 6. Subscription Plans */}
+            <button
+              onClick={() => setActiveTab('PLAN')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition ${
+                activeTab === 'PLAN'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Layers className="h-4 w-4 shrink-0 text-indigo-400" />
+                <span>Subscription Plans</span>
+              </div>
+              <span className="rounded-full bg-emerald-500/20 text-emerald-400 px-2 py-0.5 text-[10px] font-bold">
+                {availablePlans.length || 4}
+              </span>
+            </button>
+          </nav>
+        </div>
+
+        {/* Quick Customer Desk QR Link Card in Sidebar */}
+        <div className="p-3 border-t border-white/5 space-y-2 text-xs">
+          <Link
+            href={`/shop/${shopId}`}
+            target="_blank"
+            className="flex items-center justify-between px-3 py-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-300 hover:bg-sky-500/20 transition group"
+          >
+            <div className="flex items-center gap-2">
+              <QrCode className="h-3.5 w-3.5 text-sky-400" />
+              <span className="font-semibold text-[11px]">Customer Desk QR</span>
+            </div>
+            <ExternalLink className="h-3 w-3 opacity-60 group-hover:opacity-100 transition" />
+          </Link>
+        </div>
+
+        {/* Sidebar Footer: Shopkeeper Profile Card */}
+        <div className="p-4 border-t border-white/10 bg-slate-900/50">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="h-9 w-9 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300 font-bold text-xs shrink-0">
+                {currentUser?.name?.charAt(0) || 'P'}
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-white truncate">
+                  {currentUser?.name || 'Shop Manager'}
+                </div>
+                <div className="text-[10px] text-emerald-400 font-semibold truncate">
+                  {shop?.ownerName || currentUser?.role || 'Shop Owner'}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="rounded-xl p-2 text-rose-400 hover:bg-rose-500/15 hover:text-rose-300 transition"
+              title="Sign Out"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ========================================================
+          2. MAIN TERMINAL AREA (RIGHT PANEL)
+      ======================================================== */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto min-h-screen">
+        {/* Sticky Top Header Bar */}
+        <header className="border-b border-white/10 bg-slate-900/80 backdrop-blur-xl px-6 py-4 sticky top-0 z-30 flex items-center justify-between">
+          <div>
+            <h2 className="font-heading text-lg font-black text-white">
+              {activeTab === 'QUEUE' && 'Live Print Spooler & Incoming Counter Orders'}
+              {activeTab === 'FLEET' && 'Connected Fleet & Hardware Printers'}
+              {activeTab === 'UPI_PAYMENT' && 'Shop Payment QR & Direct UPI Settlement'}
+              {activeTab === 'PRICING' && 'Shop Printing & Finishing Rate Cards'}
+              {activeTab === 'REVENUE' && 'Daily Financial Ledger & Settlements'}
+              {activeTab === 'PLAN' && 'Shop Subscription Tiers & Machine Quotas'}
+            </h2>
+            <p className="text-[11px] text-slate-400">
+              {shop?.name || 'Cyber Café Hub'} • Terminal Active
+            </p>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={() => loadDashboardData(shopId)}
-              className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 hover:text-white transition"
+              className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:text-white transition"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Refresh</span>
@@ -551,194 +747,106 @@ export default function PrinterDashboardPage() {
             <Link
               href={`/shop/${shopId}`}
               target="_blank"
-              className="hidden sm:flex items-center gap-1.5 rounded-xl bg-sky-500/15 border border-sky-500/30 px-3 py-2 text-xs font-semibold text-sky-300 hover:bg-sky-500/25 transition"
+              className="hidden sm:flex items-center gap-1.5 rounded-xl bg-sky-500/15 border border-sky-500/30 px-3.5 py-2 text-xs font-semibold text-sky-300 hover:bg-sky-500/25 transition"
             >
-              <span>Customer QR Link</span>
+              <ExternalLink className="h-3.5 w-3.5" />
+              <span>Customer Order Page</span>
             </Link>
-
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 rounded-xl bg-rose-500/15 border border-rose-500/30 px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/25 transition"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              <span>Logout</span>
-            </button>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Terminal Body */}
-      <main className="flex-1 pb-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
-          {/* Quick Metrics KPI Bar */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-amber-300 font-semibold">
-                  Awaiting Cash Approval
-                </span>
-                <Banknote className="h-4 w-4 text-amber-400" />
-              </div>
-              <div className="font-heading text-2xl font-black text-white mt-1">
-                {pendingCashOrders.length} orders
-              </div>
-              <div className="text-[11px] text-amber-400 font-medium mt-0.5">
-                Require counter confirmation
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-sky-500/30 bg-sky-950/20 p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-sky-300 font-semibold">Active Print Queue</span>
-                <Clock className="h-4 w-4 text-sky-400" />
-              </div>
-              <div className="font-heading text-2xl font-black text-white mt-1">
-                {activeQueueOrders.length} jobs
-              </div>
-              <div className="text-[11px] text-sky-400 font-medium mt-0.5">
-                ~{shop?.estimatedWaitMinutes || 4} mins total wait
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-emerald-300 font-semibold">Today's Revenue</span>
-                <TrendingUp className="h-4 w-4 text-emerald-400" />
-              </div>
-              <div className="font-heading text-2xl font-black text-white mt-1">
-                ₹{(shop?.totalRevenue || 0).toFixed(2)}
-              </div>
-              <div className="text-[11px] text-emerald-400 font-medium mt-0.5">
-                Cash: ₹{(shop?.cashCollected || 0).toFixed(0)} | Online: ₹{(shop?.onlineCollected || 0).toFixed(0)}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-purple-500/30 bg-purple-950/20 p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-purple-300 font-semibold">Connected Fleet</span>
-                <Printer className="h-4 w-4 text-purple-400" />
-              </div>
-              <div className="font-heading text-2xl font-black text-white mt-1">
-                {printers.filter((p) => p.status === 'AVAILABLE').length} / {printers.length} Online
-              </div>
-              <div className="text-[11px] text-purple-400 font-medium mt-0.5">
-                {printers.filter((p) => p.status === 'BUSY').length} currently printing
-              </div>
-            </div>
-          </div>
-
-          {/* Currently Printing Live Monitor Banner */}
-          {currentlyPrintingJob && (
-            <div className="mb-6 rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-950/40 via-slate-900 to-slate-900 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-cyan-500/10 animate-pulse-subtle">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 animate-bounce">
-                  <Printer className="h-5 w-5" />
+        {/* Main Terminal Body */}
+        <main className="flex-1 px-6 py-6 pb-16">
+          <div className="max-w-7xl mx-auto space-y-6">
+            {/* Quick Metrics KPI Bar */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-amber-300 font-semibold">
+                    Awaiting Cash Approval
+                  </span>
+                  <Banknote className="h-4 w-4 text-amber-400" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="rounded bg-cyan-500 px-2 py-0.5 text-[9px] font-extrabold uppercase text-slate-950">
-                      Machine Active
-                    </span>
-                    <span className="text-xs font-bold text-white">
-                      {currentlyPrintingJob.printerName}
-                    </span>
+                <div className="font-heading text-2xl font-black text-white mt-1">
+                  {pendingCashOrders.length} orders
+                </div>
+                <div className="text-[11px] text-amber-400 font-medium mt-0.5">
+                  Require counter confirmation
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-sky-500/30 bg-sky-950/20 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-sky-300 font-semibold">Active Print Queue</span>
+                  <Clock className="h-4 w-4 text-sky-400" />
+                </div>
+                <div className="font-heading text-2xl font-black text-white mt-1">
+                  {activeQueueOrders.length} jobs
+                </div>
+                <div className="text-[11px] text-sky-400 font-medium mt-0.5">
+                  ~{shop?.estimatedWaitMinutes || 4} mins total wait
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-emerald-300 font-semibold">Today's Revenue</span>
+                  <TrendingUp className="h-4 w-4 text-emerald-400" />
+                </div>
+                <div className="font-heading text-2xl font-black text-white mt-1">
+                  ₹{(shop?.totalRevenue || 0).toFixed(2)}
+                </div>
+                <div className="text-[11px] text-emerald-400 font-medium mt-0.5">
+                  Cash: ₹{(shop?.cashCollected || 0).toFixed(0)} | Online: ₹{(shop?.onlineCollected || 0).toFixed(0)}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-purple-500/30 bg-purple-950/20 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-purple-300 font-semibold">Connected Fleet</span>
+                  <Printer className="h-4 w-4 text-purple-400" />
+                </div>
+                <div className="font-heading text-2xl font-black text-white mt-1">
+                  {printers.filter((p) => p.status === 'AVAILABLE').length} / {printers.length} Online
+                </div>
+                <div className="text-[11px] text-purple-400 font-medium mt-0.5">
+                  {printers.filter((p) => p.status === 'BUSY').length} currently printing
+                </div>
+              </div>
+            </div>
+
+            {/* Currently Printing Live Monitor Banner */}
+            {currentlyPrintingJob && (
+              <div className="rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-950/40 via-slate-900 to-slate-900 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-cyan-500/10 animate-pulse-subtle">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 animate-bounce">
+                    <Printer className="h-5 w-5" />
                   </div>
-                  <p className="text-xs text-cyan-200 mt-0.5">
-                    Currently printing: <strong>{currentlyPrintingJob.fileName}</strong> ({currentlyPrintingJob.pageCount} pages × {currentlyPrintingJob.copies} copies) for {currentlyPrintingJob.customerName}
-                  </p>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-cyan-500 px-2 py-0.5 text-[9px] font-extrabold uppercase text-slate-950">
+                        Machine Active
+                      </span>
+                      <span className="text-xs font-bold text-white">
+                        {currentlyPrintingJob.printerName}
+                      </span>
+                    </div>
+                    <p className="text-xs text-cyan-200 mt-0.5">
+                      Currently printing: <strong>{currentlyPrintingJob.fileName}</strong> ({currentlyPrintingJob.pageCount} pages × {currentlyPrintingJob.copies} copies) for {currentlyPrintingJob.customerName}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleUpdateOrderStatus(currentlyPrintingJob._id, 'READY')}
+                    className="rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-400 transition"
+                  >
+                    Mark Ready for Pickup
+                  </button>
                 </div>
               </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleUpdateOrderStatus(currentlyPrintingJob._id, 'READY')}
-                  className="rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-400 transition"
-                >
-                  Mark Ready for Pickup
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Tab Navigation */}
-          <div className="flex border-b border-white/10 mb-6 space-x-4 text-xs font-bold">
-            <button
-              onClick={() => setActiveTab('QUEUE')}
-              className={`pb-3 border-b-2 flex items-center gap-2 transition ${
-                activeTab === 'QUEUE'
-                  ? 'border-emerald-400 text-emerald-400'
-                  : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-            >
-              <Clock className="h-4 w-4" />
-              <span>Print Queue & Incoming Orders</span>
-              {(pendingCashOrders.length > 0 || activeQueueOrders.length > 0) && (
-                <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px]">
-                  {pendingCashOrders.length + activeQueueOrders.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('FLEET')}
-              className={`pb-3 border-b-2 flex items-center gap-2 transition ${
-                activeTab === 'FLEET'
-                  ? 'border-emerald-400 text-emerald-400'
-                  : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-            >
-              <Printer className="h-4 w-4" />
-              <span>Printer Fleet ({printers.length})</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('UPI_PAYMENT')}
-              className={`pb-3 border-b-2 flex items-center gap-2 transition ${
-                activeTab === 'UPI_PAYMENT'
-                  ? 'border-emerald-400 text-emerald-400'
-                  : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-            >
-              <QrCode className="h-4 w-4" />
-              <span>UPI & QR Payments</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('PRICING')}
-              className={`pb-3 border-b-2 flex items-center gap-2 transition ${
-                activeTab === 'PRICING'
-                  ? 'border-emerald-400 text-emerald-400'
-                  : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-            >
-              <Sliders className="h-4 w-4" />
-              <span>Pricing Rates</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('REVENUE')}
-              className={`pb-3 border-b-2 flex items-center gap-2 transition ${
-                activeTab === 'REVENUE'
-                  ? 'border-emerald-400 text-emerald-400'
-                  : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-            >
-              <DollarSign className="h-4 w-4" />
-              <span>Payments & Cash Ledger</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('PLAN')}
-              className={`pb-3 border-b-2 flex items-center gap-2 transition ${
-                activeTab === 'PLAN'
-                  ? 'border-emerald-400 text-emerald-400'
-                  : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-            >
-              <ShieldCheck className="h-4 w-4" />
-              <span>Recharge & Subscription</span>
-            </button>
-          </div>
+            )}
 
           {/* TAB 1: Print Queue & Orders */}
           {activeTab === 'QUEUE' && (
@@ -1579,81 +1687,177 @@ export default function PrinterDashboardPage() {
             </div>
           )}
 
-          {/* TAB 5: Recharge & Subscription */}
+          {/* TAB 5: Subscription Plans & All Tiers */}
           {activeTab === 'PLAN' && (
             <div className="space-y-6">
-              <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-6 backdrop-blur-xl">
+              {/* Active Plan Overview Card */}
+              <div className="rounded-3xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/30 via-slate-900 to-slate-900 p-6 backdrop-blur-xl ring-1 ring-emerald-500/20">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                   <div>
-                    <h3 className="font-heading text-lg font-bold text-white flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                       <ShieldCheck className="h-5 w-5 text-emerald-400" />
-                      Current Subscription Plan
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Platform tier & commission agreement
+                      <h3 className="font-heading text-lg font-bold text-white">
+                        Current Active Plan: {shop?.activePlan || 'Free Launch Plan'}
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1">
+                      Cyber café platform tier, machine limits, and commission agreement.
                     </p>
                   </div>
 
-                  <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3.5 py-1 text-xs font-black text-emerald-400 uppercase tracking-wider">
-                    Active: {shop?.activePlan || 'Free Launch Plan'}
+                  <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-4 py-1.5 text-xs font-black text-emerald-400 uppercase tracking-wider shrink-0">
+                    ● ACTIVE & VERIFIED
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                  <div className="rounded-2xl border border-white/10 bg-slate-800/60 p-5">
-                    <span className="text-xs font-semibold text-slate-400">Max Machine Limit</span>
-                    <div className="font-heading text-2xl sm:text-3xl font-black text-white mt-1">
-                      Unlimited Slots
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+                  <div className="rounded-2xl border border-white/10 bg-slate-800/60 p-4">
+                    <span className="text-xs font-semibold text-slate-400">Monthly Tier Fee</span>
+                    <div className="font-heading text-2xl font-black text-emerald-400 mt-1">
+                      {shop?.activePlan === 'Free Launch Plan' ? 'FREE (₹0)' : 'Active Plan'}
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      Currently using {printers.length} linked machines
-                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Zero monthly charges</p>
                   </div>
 
-                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-950/20 p-5">
+                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-950/20 p-4">
                     <span className="text-xs font-semibold text-emerald-300">Platform Commission</span>
-                    <div className="font-heading text-2xl sm:text-3xl font-black text-emerald-400 mt-1">
+                    <div className="font-heading text-2xl font-black text-emerald-400 mt-1">
                       0.0% Fee
                     </div>
-                    <p className="text-[11px] text-emerald-300/80 mt-1">
-                      Zero fee launch offer (Keep 100% of revenue)
-                    </p>
+                    <p className="text-[11px] text-emerald-300/80 mt-0.5">Keep 100% of all cash & UPI revenue</p>
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-slate-800/60 p-5">
-                    <span className="text-xs font-semibold text-slate-400">Plan Renewal Status</span>
-                    <div className="font-heading text-2xl sm:text-3xl font-black text-emerald-400 mt-1">
-                      Active Forever
+                  <div className="rounded-2xl border border-white/10 bg-slate-800/60 p-4">
+                    <span className="text-xs font-semibold text-slate-400">Machine Fleet Limit</span>
+                    <div className="font-heading text-2xl font-black text-white mt-1">
+                      {printers.length} Connected
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      Free during Platform Launch Phase
-                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Unlimited hardware slots enabled</p>
                   </div>
                 </div>
+              </div>
 
-                {/* Launch Phase Banner */}
-                <div className="mt-8 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/30 via-slate-900 to-slate-900 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+              {/* All Platform Plans Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-emerald-400" />
-                      <h4 className="font-heading text-sm font-bold text-white">
-                        Free Launch Plan Active for Your Cyber Café
-                      </h4>
-                    </div>
-                    <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
-                      All shops on PrintPorter currently enjoy 100% free access with zero platform commissions. All customer payments via your direct shop UPI QR standee and cash counter are yours. Custom and premium subscription tiers will be launched soon by the Super Admin team.
+                    <h3 className="font-heading text-base font-bold text-white">
+                      All Platform Monetization & Subscription Tiers
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Explore available cyber café plans configured by Super Admin.
                     </p>
                   </div>
 
-                  <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 px-4 py-2 text-xs font-bold text-emerald-400 shrink-0">
-                    No Subscription Fees Due
-                  </div>
+                  <span className="text-xs text-slate-400">
+                    {availablePlans.length} Plans available
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {availablePlans.map((plan) => {
+                    const isCurrent = (shop?.activePlan || 'Free Launch Plan').toLowerCase() === plan.name.toLowerCase();
+                    const isFree = plan.priceMonthly === 0;
+
+                    return (
+                      <div
+                        key={plan._id || plan.name}
+                        className={`rounded-3xl border p-5 flex flex-col justify-between transition-all ${
+                          isCurrent
+                            ? 'border-emerald-500/50 bg-emerald-950/20 ring-1 ring-emerald-500/30'
+                            : 'border-white/10 bg-slate-900/80 hover:border-white/20'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <h4 className="font-heading text-sm font-bold text-white line-clamp-1">
+                              {plan.name}
+                            </h4>
+                            {isCurrent ? (
+                              <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[9px] font-extrabold text-emerald-400 uppercase">
+                                Current
+                              </span>
+                            ) : plan.isPopular ? (
+                              <span className="rounded-full bg-sky-500/20 border border-sky-500/30 px-2 py-0.5 text-[9px] font-bold text-sky-400">
+                                Popular
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <div className="font-heading text-2xl font-black text-white mb-3">
+                            {isFree ? (
+                              <span className="text-emerald-400">FREE</span>
+                            ) : (
+                              <>
+                                ₹{plan.priceMonthly}
+                                <span className="text-xs font-normal text-slate-400">/mo</span>
+                              </>
+                            )}
+                          </div>
+
+                          <div className="text-[11px] text-slate-300 pb-3 mb-3 border-b border-white/5 space-y-1">
+                            <div>Machines: <strong className="text-white">{plan.maxPrinters} printers</strong></div>
+                            <div>Platform Fee: <strong className="text-sky-400">{plan.commissionRate}%</strong></div>
+                          </div>
+
+                          <ul className="space-y-1.5 text-[11px] text-slate-300 mb-4">
+                            {(plan.features || []).map((f: string, i: number) => (
+                              <li key={i} className="flex items-start gap-1.5">
+                                <CheckCircle2 className={`h-3 w-3 shrink-0 mt-0.5 ${isCurrent ? 'text-emerald-400' : 'text-sky-400'}`} />
+                                <span className="line-clamp-2">{f}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div className="pt-2 border-t border-white/10">
+                          {isCurrent ? (
+                            <button
+                              disabled
+                              className="w-full rounded-xl bg-emerald-500/20 border border-emerald-500/30 py-2 text-xs font-bold text-emerald-300 cursor-default"
+                            >
+                              ✓ Active Plan
+                            </button>
+                          ) : (
+                            <button
+                              disabled={updatingPlan}
+                              onClick={async () => {
+                                if (!confirm(`Switch your shop subscription to "${plan.name}"?`)) return;
+                                setUpdatingPlan(true);
+                                try {
+                                  const res = await fetch(`/api/shops/${shopId}`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ activePlan: plan.name }),
+                                  });
+                                  if (res.ok) {
+                                    setToastMessage(`Switched to ${plan.name}`);
+                                    loadDashboardData(shopId);
+                                  } else {
+                                    alert('Failed to update plan');
+                                  }
+                                } catch {
+                                  alert('Error switching plan');
+                                } finally {
+                                  setUpdatingPlan(false);
+                                }
+                              }}
+                              className="w-full rounded-xl bg-slate-800 hover:bg-emerald-500 hover:text-slate-950 py-2 text-xs font-bold text-slate-200 transition"
+                            >
+                              Switch to this Plan
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
           )}
-        </div>
-      </main>
+          </div>
+        </main>
+      </div>
 
       {/* Link Hardware Printer Modal */}
       {showAddPrinterModal && (

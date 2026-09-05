@@ -54,6 +54,7 @@ export default function ShopDetailPage() {
   const [upiRefNumber, setUpiRefNumber] = useState('');
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<any>(null);
+  const [platformSettings, setPlatformSettings] = useState<any>(null);
 
   // Contact info
   const [customerName, setCustomerName] = useState('');
@@ -100,6 +101,16 @@ export default function ShopDetailPage() {
         if (data?.authenticated && data.user) {
           setCustomerName(data.user.name);
           setCustomerPhone(data.user.phone);
+        }
+      })
+      .catch(() => {});
+
+    // Fetch platform monetization settings
+    fetch('/api/admin/settings')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.settings) {
+          setPlatformSettings(data.settings);
         }
       })
       .catch(() => {});
@@ -582,30 +593,55 @@ export default function ShopDetailPage() {
               </div>
 
               {/* Order Summary Box */}
-              <div className="rounded-3xl border border-white/10 bg-slate-900/90 p-5 space-y-2 text-xs">
-                <div className="flex justify-between text-slate-300">
-                  <span>Cyber Café:</span>
-                  <span className="font-bold text-white">{shop.name}</span>
-                </div>
-                <div className="flex justify-between text-slate-300">
-                  <span>Selected Machine:</span>
-                  <span className="font-semibold text-sky-400">{selectedPrinter?.name}</span>
-                </div>
-                <div className="flex justify-between text-slate-300">
-                  <span>Documents:</span>
-                  <span className="font-bold text-white">{uploadedFiles.length} file(s) ({totalCalculatedPages} pgs)</span>
-                </div>
-                <div className="flex justify-between text-slate-300">
-                  <span>Specs:</span>
-                  <span className="text-slate-200">
-                    {printSettings?.copies} copy • {printSettings?.isColor ? 'Color' : 'B&W'} • {printSettings?.orientation} • {printSettings?.paperSize}
-                  </span>
-                </div>
-                <div className="flex justify-between border-t border-white/10 pt-3 font-heading text-base font-black text-white">
-                  <span>Print Total:</span>
-                  <span className="text-emerald-400">₹{printSettings?.pricing?.totalPrice?.toFixed(2) || '0.00'}</span>
-                </div>
-              </div>
+              {(() => {
+                const subtotal = printSettings?.pricing?.totalPrice || 0;
+                let platformFee = 0;
+                if (platformSettings?.platformFeeEnabled && Number(platformSettings?.platformFeeAmount) > 0) {
+                  if (platformSettings.platformFeeType === 'PERCENT') {
+                    platformFee = Math.round(((subtotal * platformSettings.platformFeeAmount) / 100) * 100) / 100;
+                  } else {
+                    platformFee = Number(platformSettings.platformFeeAmount);
+                  }
+                }
+                const grandTotal = +(subtotal + platformFee).toFixed(2);
+
+                return (
+                  <div className="rounded-3xl border border-white/10 bg-slate-900/90 p-5 space-y-2.5 text-xs">
+                    <div className="flex justify-between text-slate-300">
+                      <span>Cyber Café:</span>
+                      <span className="font-bold text-white">{shop.name}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-300">
+                      <span>Selected Machine:</span>
+                      <span className="font-semibold text-sky-400">{selectedPrinter?.name}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-300">
+                      <span>Documents:</span>
+                      <span className="font-bold text-white">{uploadedFiles.length} file(s) ({totalCalculatedPages} pgs)</span>
+                    </div>
+                    <div className="flex justify-between text-slate-300">
+                      <span>Specs:</span>
+                      <span className="text-slate-200">
+                        {printSettings?.copies} copy • {printSettings?.isColor ? 'Color' : 'B&W'} • {printSettings?.orientation} • {printSettings?.paperSize}
+                      </span>
+                    </div>
+                    <div className="border-t border-white/5 pt-2 flex justify-between text-slate-300">
+                      <span>Printing Subtotal:</span>
+                      <span className="font-semibold text-white">₹{subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-300">
+                      <span>{platformSettings?.platformFeeLabel || 'Platform Convenience Fee'}:</span>
+                      <span className={platformFee > 0 ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'}>
+                        {platformFee > 0 ? `+₹${platformFee.toFixed(2)}` : '₹0.00 (Launch Offer)'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t border-white/10 pt-3 font-heading text-base font-black text-white">
+                      <span>Total Payable:</span>
+                      <span className="text-emerald-400">₹{grandTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Payment Methods */}
               <div className="space-y-4">
@@ -641,88 +677,101 @@ export default function ShopDetailPage() {
                   </div>
 
                   {/* Expanded UPI QR Payment Details */}
-                  {paymentMethod === 'UPI' && (
-                    <div className="mt-4 pt-4 border-t border-white/10 space-y-4">
-                      <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-950/80 p-4 rounded-2xl border border-white/5">
-                        {/* QR Code */}
-                        <div className="bg-white p-2.5 rounded-xl shrink-0 shadow-md">
-                          <img
-                            src={
-                              shop.upiQrUrl ||
-                              `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
-                                `upi://pay?pa=${shop.upiId || 'apexprint@upi'}&pn=${encodeURIComponent(
-                                  shop.name
-                                )}&am=${(printSettings?.pricing?.totalPrice || 0).toFixed(2)}&cu=INR`
-                              )}`
-                            }
-                            alt="Scan Shop UPI QR"
-                            className="h-32 w-32 object-contain"
-                          />
-                        </div>
+                  {paymentMethod === 'UPI' && (() => {
+                    const subtotal = printSettings?.pricing?.totalPrice || 0;
+                    let platformFee = 0;
+                    if (platformSettings?.platformFeeEnabled && Number(platformSettings?.platformFeeAmount) > 0) {
+                      if (platformSettings.platformFeeType === 'PERCENT') {
+                        platformFee = Math.round(((subtotal * platformSettings.platformFeeAmount) / 100) * 100) / 100;
+                      } else {
+                        platformFee = Number(platformSettings.platformFeeAmount);
+                      }
+                    }
+                    const grandTotal = +(subtotal + platformFee).toFixed(2);
 
-                        {/* Payment Info & Quick Actions */}
-                        <div className="flex-1 text-center sm:text-left space-y-2.5 w-full">
-                          <div className="text-[11px] text-slate-400">
-                            Scan with GPay / PhonePe / Paytm to pay:
-                            <div className="font-heading text-lg font-black text-emerald-400 mt-0.5">
-                              ₹{printSettings?.pricing?.totalPrice?.toFixed(2) || '0.00'}
+                    return (
+                      <div className="mt-4 pt-4 border-t border-white/10 space-y-4">
+                        <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-950/80 p-4 rounded-2xl border border-white/5">
+                          {/* QR Code */}
+                          <div className="bg-white p-2.5 rounded-xl shrink-0 shadow-md">
+                            <img
+                              src={
+                                shop.upiQrUrl ||
+                                `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
+                                  `upi://pay?pa=${shop.upiId || 'apexprint@upi'}&pn=${encodeURIComponent(
+                                    shop.name
+                                  )}&am=${grandTotal.toFixed(2)}&cu=INR`
+                                )}`
+                              }
+                              alt="Scan Shop UPI QR"
+                              className="h-32 w-32 object-contain"
+                            />
+                          </div>
+
+                          {/* Payment Info & Quick Actions */}
+                          <div className="flex-1 text-center sm:text-left space-y-2.5 w-full">
+                            <div className="text-[11px] text-slate-400">
+                              Scan with GPay / PhonePe / Paytm to pay:
+                              <div className="font-heading text-lg font-black text-emerald-400 mt-0.5">
+                                ₹{grandTotal.toFixed(2)}
+                              </div>
                             </div>
-                          </div>
 
-                          {/* UPI ID Copy Box */}
-                          <div className="flex items-center justify-between rounded-xl bg-slate-900 border border-white/10 px-3 py-2 text-xs">
-                            <span className="font-mono text-[11px] text-slate-200 truncate mr-2">
-                              {shop.upiId || 'apexprint@upi'}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigator.clipboard.writeText(shop.upiId || 'apexprint@upi');
-                                setCopiedUpi(true);
-                                setTimeout(() => setCopiedUpi(false), 2000);
-                              }}
-                              className="rounded-lg bg-emerald-500/20 px-2.5 py-1 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500/30 transition flex items-center gap-1 shrink-0"
+                            {/* UPI ID Copy Box */}
+                            <div className="flex items-center justify-between rounded-xl bg-slate-900 border border-white/10 px-3 py-2 text-xs">
+                              <span className="font-mono text-[11px] text-slate-200 truncate mr-2">
+                                {shop.upiId || 'apexprint@upi'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(shop.upiId || 'apexprint@upi');
+                                  setCopiedUpi(true);
+                                  setTimeout(() => setCopiedUpi(false), 2000);
+                                }}
+                                className="rounded-lg bg-emerald-500/20 px-2.5 py-1 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500/30 transition flex items-center gap-1 shrink-0"
+                              >
+                                {copiedUpi ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                                <span>{copiedUpi ? 'Copied' : 'Copy UPI'}</span>
+                              </button>
+                            </div>
+
+                            {/* Mobile UPI App Link */}
+                            <a
+                              href={`upi://pay?pa=${shop.upiId || 'apexprint@upi'}&pn=${encodeURIComponent(
+                                shop.name
+                              )}&am=${grandTotal.toFixed(2)}&cu=INR`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center justify-center gap-1.5 w-full rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 py-2 text-xs font-bold text-white hover:brightness-110 transition"
                             >
-                              {copiedUpi ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                              <span>{copiedUpi ? 'Copied' : 'Copy UPI'}</span>
-                            </button>
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              <span>Open in UPI App</span>
+                            </a>
                           </div>
+                        </div>
 
-                          {/* Mobile UPI App Link */}
-                          <a
-                            href={`upi://pay?pa=${shop.upiId || 'apexprint@upi'}&pn=${encodeURIComponent(
-                              shop.name
-                            )}&am=${(printSettings?.pricing?.totalPrice || 0).toFixed(2)}&cu=INR`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center justify-center gap-1.5 w-full rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 py-2 text-xs font-bold text-white hover:brightness-110 transition"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            <span>Open in UPI App</span>
-                          </a>
+                        {/* UTR Reference Input */}
+                        <div>
+                          <label className="text-xs font-semibold text-slate-300 mb-1.5 block">
+                            UPI UTR / Reference ID (Optional confirmation)
+                          </label>
+                          <input
+                            type="text"
+                            value={upiRefNumber}
+                            onChange={(e) => setUpiRefNumber(e.target.value)}
+                            placeholder="e.g. 423984102934 or Google Pay transaction ID"
+                            className="w-full rounded-xl border border-white/10 bg-slate-900 px-3.5 py-2.5 text-xs text-white font-mono outline-none focus:border-emerald-500"
+                          />
+                          <span className="text-[10px] text-slate-500 mt-1 block">
+                            Instant verification for shopkeeper counter ledger.
+                          </span>
                         </div>
                       </div>
-
-                      {/* UTR Reference Input */}
-                      <div>
-                        <label className="text-xs font-semibold text-slate-300 mb-1.5 block">
-                          UPI UTR / Reference ID (Optional confirmation)
-                        </label>
-                        <input
-                          type="text"
-                          value={upiRefNumber}
-                          onChange={(e) => setUpiRefNumber(e.target.value)}
-                          placeholder="e.g. 423984102934 or Google Pay transaction ID"
-                          className="w-full rounded-xl border border-white/10 bg-slate-900 px-3.5 py-2.5 text-xs text-white font-mono outline-none focus:border-emerald-500"
-                        />
-                        <span className="text-[10px] text-slate-500 mt-1 block">
-                          Instant verification for shopkeeper counter ledger.
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 {/* OPTION 2: Cash at Counter */}

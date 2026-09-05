@@ -12,7 +12,18 @@ declare global {
   // eslint-disable-next-line no-var
   var mongooseCache: MongooseCache | undefined;
   // eslint-disable-next-line no-var
-  var memoryStore: Record<string, any[]> | undefined;
+  var memoryStore:
+    | {
+        users: any[];
+        shops: any[];
+        printers: any[];
+        orders: any[];
+        plans: any[];
+        payments: any[];
+        settings?: any;
+        [key: string]: any;
+      }
+    | undefined;
   // eslint-disable-next-line no-var
   var io: any | undefined;
 }
@@ -38,6 +49,21 @@ if (!global.memoryStore) {
     orders: [],
     plans: [],
     payments: [],
+    settings: {
+      platformFeeEnabled: false,
+      platformFeeType: 'FLAT',
+      platformFeeAmount: 0,
+      platformFeeLabel: 'Platform Convenience Fee',
+    },
+  };
+}
+
+if (!global.memoryStore.settings) {
+  global.memoryStore.settings = {
+    platformFeeEnabled: false,
+    platformFeeType: 'FLAT',
+    platformFeeAmount: 0,
+    platformFeeLabel: 'Platform Convenience Fee',
   };
 }
 

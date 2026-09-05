@@ -148,6 +148,19 @@ export async function POST(req: NextRequest) {
       }
     ];
 
+    // Platform Fee calculation if configured by Admin
+    const settings = memoryStore.settings || {};
+    let platformFee = 0;
+    if (settings.platformFeeEnabled && Number(settings.platformFeeAmount) > 0) {
+      if (settings.platformFeeType === 'PERCENT') {
+        platformFee = Math.round(((pricing.totalPrice * settings.platformFeeAmount) / 100) * 100) / 100;
+      } else {
+        platformFee = Number(settings.platformFeeAmount);
+      }
+    }
+
+    const finalTotalPrice = +(pricing.totalPrice + platformFee).toFixed(2);
+
     const newOrder = {
       _id: orderId,
       orderNumber,
@@ -172,7 +185,7 @@ export async function POST(req: NextRequest) {
       orientation: data.orientation || 'PORTRAIT',
       binding: data.binding,
       notes: data.notes || '',
-      totalPrice: pricing.totalPrice,
+      totalPrice: finalTotalPrice,
       breakdown: {
         pagesTotal: pricing.pagesTotal,
         ratePerPage: pricing.ratePerPage,
@@ -180,6 +193,7 @@ export async function POST(req: NextRequest) {
         bindingFee: pricing.bindingFee,
         deliveryFee: pricing.deliveryFee,
         gstAmount: pricing.gstAmount,
+        platformFee,
       },
       paymentType: data.paymentType,
       paymentStatus: initialPaymentStatus,
@@ -208,10 +222,11 @@ export async function POST(req: NextRequest) {
 
     // If online or UPI payment, immediately record transaction
     if (isPaidInstantly) {
-      // Free Launch Plan has 0% platform fee
+      // Free Launch Plan has 0% shop commission fee
       const commissionRate = (shop.activePlan === 'Free Launch Plan') ? 0.0 : 0.03;
-      const commission = +(pricing.totalPrice * commissionRate).toFixed(2);
-      const shopCut = +(pricing.totalPrice - commission).toFixed(2);
+      const baseCommission = +(pricing.totalPrice * commissionRate).toFixed(2);
+      const totalAdminCommission = +(baseCommission + platformFee).toFixed(2);
+      const shopCut = +(pricing.totalPrice - baseCommission).toFixed(2);
 
       const paymentRecord = {
         _id: `pay_${Date.now()}`,
@@ -221,10 +236,10 @@ export async function POST(req: NextRequest) {
         shopName: shop.name,
         customerId,
         customerName,
-        amount: pricing.totalPrice,
+        amount: finalTotalPrice,
         paymentType: isUpi ? ('UPI' as const) : ('ONLINE' as const),
         paymentStatus: 'SUCCESS' as const,
-        adminCommission: commission,
+        adminCommission: totalAdminCommission,
         shopEarnings: shopCut,
         transactionId: isUpi ? (upiRefNumber || `UPI_TXN_${Date.now()}`) : `TXN_GATEWAY_${Date.now()}`,
         paymentGatewayRef: isUpi ? `shop_upi_${shop.upiId || 'direct'}` : `sim_gateway_${Date.now()}`,
