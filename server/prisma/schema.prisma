@@ -1,0 +1,192 @@
+// Prisma schema for PrintPorter PostgreSQL Database
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CUSTOMER
+  SHOP_OWNER
+  ADMIN
+  DELIVERY_PARTNER
+}
+
+enum KycStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum OrderStatus {
+  MATCHING
+  DISPATCHED_TO_SHOP
+  ACCEPTED
+  PRINTING
+  READY
+  OUT_FOR_DELIVERY
+  COMPLETED
+  CANCELLED
+  REASSIGNED
+}
+
+enum PaymentMode {
+  ONLINE
+  COD
+}
+
+enum PaymentStatus {
+  PENDING
+  ESCROW_HELD
+  COLLECTED_BY_SHOP
+  PAID_OUT
+  REFUNDED
+}
+
+enum DeliveryType {
+  SELF_PICKUP
+  HOME_DELIVERY
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  phone         String    @unique
+  email         String?   @unique
+  role          Role      @default(CUSTOMER)
+  avatarUrl     String?
+  address       String?
+  lat           Float?
+  lng           Float?
+  walletBalance Float     @default(0.0)
+  isBlocked     Boolean   @default(false)
+  codNoShows    Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  shops         Shop[]
+  orders        Order[]
+  reviews       Review[]
+  transactions  Transaction[]
+  chatMessages  ChatMessage[]
+}
+
+model Shop {
+  id                String    @id @default(uuid())
+  ownerId           String
+  owner             User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name              String
+  address           String
+  lat               Float
+  lng               Float
+  phone             String
+  kycStatus         KycStatus @default(PENDING)
+  kycDocs           Json      @default("{\"tradeLicense\": null, \"ownerIdProof\": null, \"gstNumber\": null}")
+  isOnline          Boolean   @default(false)
+  isBusy            Boolean   @default(false)
+  capabilities      Json
+  maxDailyCapacity  Int       @default(2000)
+  currentQueueCount Int       @default(0)
+  rating            Float     @default(4.8)
+  reviewCount       Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  orders            Order[]
+  stockItems        StockItem[]
+  reviews           Review[]
+  transactions      Transaction[]
+}
+
+model Order {
+  id                String         @id @default(uuid())
+  orderNumber       String         @unique
+  userId            String
+  user              User           @relation(fields: [userId], references: [id])
+  shopId            String?
+  shop              Shop?          @relation(fields: [shopId], references: [id])
+  fileUrl           String
+  fileName          String
+  fileSizeMb        Float          @default(1.0)
+  pageCount         Int            @default(1)
+  specs             Json
+  totalPrice        Float
+  platformFee       Float          @default(5.0)
+  shopEarnings      Float
+  deliveryFee       Float          @default(0.0)
+  paymentMode       PaymentMode
+  paymentStatus     PaymentStatus  @default(PENDING)
+  orderStatus       OrderStatus    @default(MATCHING)
+  deliveryType      DeliveryType   @default(SELF_PICKUP)
+  deliveryAddress   String?
+  deliveryLat       Float?
+  deliveryLng       Float?
+  customNotes       String?
+  autoDeleteAt      DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  transactions      Transaction[]
+  reviews           Review[]
+  chatMessages      ChatMessage[]
+}
+
+model Transaction {
+  id               String   @id @default(uuid())
+  orderId          String
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  shopId           String?
+  shop             Shop?    @relation(fields: [shopId], references: [id])
+  amount           Float
+  platformCut      Float
+  shopCut          Float
+  mode             String
+  status           String   @default("PENDING")
+  settlementStatus String   @default("UNSETTLED")
+  settledAt        DateTime?
+  createdAt        DateTime @default(now())
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  shopId    String
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+}
+
+model StockItem {
+  id                 String   @id @default(uuid())
+  shopId             String
+  shop               Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  itemName           String
+  category           String
+  currentStock       Int      @default(500)
+  unit               String   @default("sheets")
+  lowStockThreshold  Int      @default(100)
+  isLowStock         Boolean  @default(false)
+  isOutOfStock       Boolean  @default(false)
+  updatedAt          DateTime @updatedAt
+}
+
+model ChatMessage {
+  id         String   @id @default(uuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  senderId   String
+  sender     User     @relation(fields: [senderId], references: [id])
+  senderRole String
+  message    String
+  createdAt  DateTime @default(now())
+}
