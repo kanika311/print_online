@@ -29,7 +29,13 @@ export default function QRCodeCard({
   };
 
   const handleCopyLink = () => {
-    const shopUrl = `${window.location.origin}/shop/${shopId}`;
+    const origin =
+      typeof window !== 'undefined' &&
+      !window.location.origin.includes('localhost') &&
+      !window.location.origin.includes('127.0.0.1')
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_APP_URL || 'https://printonline-two.vercel.app';
+    const shopUrl = `${origin}/shop/${shopId}`;
     navigator.clipboard.writeText(shopUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

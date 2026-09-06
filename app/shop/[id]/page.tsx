@@ -714,12 +714,13 @@ export default function ShopDetailPage() {
                           <div className="bg-white border border-slate-200 p-2 rounded-lg shrink-0 shadow-sm mx-auto sm:mx-0">
                             <img
                               src={
-                                shop.upiQrUrl ||
-                                `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
-                                  `upi://pay?pa=${shop.upiId || 'apexprint@upi'}&pn=${encodeURIComponent(
-                                    shop.name
-                                  )}&am=${grandTotal.toFixed(2)}&cu=INR`
-                                )}`
+                                (shop.upiQrUrl && !shop.upiQrUrl.includes('api.qrserver.com'))
+                                  ? shop.upiQrUrl
+                                  : `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
+                                      `upi://pay?pa=${shop.upiId || 'apexprint@upi'}&pn=${encodeURIComponent(
+                                        shop.name
+                                      )}&am=${grandTotal.toFixed(2)}&cu=INR`
+                                    )}`
                               }
                               alt="Scan Shop UPI QR"
                               className="h-28 w-28 sm:h-32 sm:w-32 object-contain"

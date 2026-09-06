@@ -9,7 +9,7 @@ const nextConfig = {
     return config;
   },
   images: {
-    domains: ['localhost', 'images.unsplash.com', 'api.qrserver.com'],
+    domains: ['localhost', 'printonline-two.vercel.app', 'images.unsplash.com', 'api.qrserver.com'],
   },
 };
 

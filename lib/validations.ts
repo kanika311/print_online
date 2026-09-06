@@ -5,32 +5,105 @@ export const LoginSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
+export function sanitizePhoneNumber(phone: string): string {
+  if (!phone) return '';
+  return phone.replace(/[\s\-\(\)\+]/g, '').replace(/^91(?=\d{10}$)/, '').replace(/^0(?=\d{10}$)/, '');
+}
+
+export function isValidIndianPhone(phone: string): boolean {
+  const cleaned = sanitizePhoneNumber(phone);
+  return /^[6-9]\d{9}$/.test(cleaned);
+}
+
+export function isValidUpiId(upi: string): boolean {
+  if (!upi || !upi.trim()) return true;
+  return /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(upi.trim());
+}
+
+export const AdminCreateSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, 'Name must be at least 2 characters')
+    .max(50, 'Name cannot exceed 50 characters')
+    .regex(/^[a-zA-Z\s.]+$/, 'Name can only contain letters and spaces'),
+  email: z.string().trim().toLowerCase().email('Valid email address is required'),
+  phone: z
+    .string()
+    .trim()
+    .optional()
+    .refine((val) => !val || isValidIndianPhone(val), {
+      message: 'Phone must be a valid 10-digit Indian mobile number (starts with 6, 7, 8, or 9)',
+    })
+    .transform((val) => (val ? sanitizePhoneNumber(val) : '')),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  role: z.enum(['ADMIN', 'CUSTOMER']).optional().default('ADMIN'),
+});
+
+
 export const RegisterSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Valid email address is required'),
-  phone: z.string().min(10, 'Valid 10-digit phone number is required'),
+  name: z
+    .string()
+    .trim()
+    .min(2, 'Name must be at least 2 characters')
+    .max(50, 'Name cannot exceed 50 characters')
+    .regex(/^[a-zA-Z\s.]+$/, 'Name can only contain letters and spaces'),
+  email: z.string().trim().toLowerCase().email('Valid email address is required'),
+  phone: z
+    .string()
+    .trim()
+    .refine((val) => isValidIndianPhone(val), {
+      message: 'Phone must be a valid 10-digit Indian mobile number (starts with 6, 7, 8, or 9)',
+    })
+    .transform((val) => sanitizePhoneNumber(val)),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
-export const ShopRegisterSchema = z.object({
-  name: z.string().min(3, 'Shop name is required'),
-  ownerName: z.string().min(2, 'Owner name is required'),
-  ownerEmail: z.string().email('Valid owner email is required'),
-  ownerPhone: z.string().min(10, 'Valid 10-digit owner phone is required'),
-  ownerPassword: z.string().min(6, 'Owner password must be at least 6 characters'),
-  address: z.string().min(5, 'Physical address is required'),
-  lat: z.number().optional().default(28.5704),
-  lng: z.number().optional().default(77.3245),
-  activePlan: z.string().optional().default('Free Launch Plan'),
-  capabilities: z
-    .object({
-      supportedSizes: z.array(z.string()).default(['A4', 'A3', 'Legal']),
-      colorPrinting: z.boolean().default(true),
-      duplexPrinting: z.boolean().default(true),
-      supportedBindings: z.array(z.string()).default(['None', 'Corner Staple', 'Spiral Binding']),
-    })
-    .optional(),
-});
+export const ShopRegisterSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(3, 'Shop name must be at least 3 characters')
+      .max(80, 'Shop name cannot exceed 80 characters'),
+    ownerName: z
+      .string()
+      .trim()
+      .min(2, 'Owner name must be at least 2 characters')
+      .max(50, 'Owner name cannot exceed 50 characters')
+      .regex(/^[a-zA-Z\s.]+$/, 'Owner name can only contain letters and spaces'),
+    ownerEmail: z.string().trim().toLowerCase().email('Valid owner email address is required'),
+    ownerPhone: z
+      .string()
+      .trim()
+      .refine((val) => isValidIndianPhone(val), {
+        message: 'Owner phone must be a valid 10-digit Indian mobile number (starts with 6, 7, 8, or 9)',
+      })
+      .transform((val) => sanitizePhoneNumber(val)),
+    ownerPassword: z.string().min(6, 'Owner password must be at least 6 characters').optional(),
+    password: z.string().min(6, 'Password must be at least 6 characters').optional(),
+    planId: z.string().optional(),
+    address: z
+      .string()
+      .trim()
+      .min(5, 'Physical address must be at least 5 characters')
+      .max(200, 'Address cannot exceed 200 characters'),
+    lat: z.number().optional().default(28.5704),
+    lng: z.number().optional().default(77.3245),
+    activePlan: z.string().optional().default('Free Launch Plan'),
+    capabilities: z
+      .object({
+        supportedSizes: z.array(z.string()).default(['A4', 'A3', 'Legal']),
+        colorPrinting: z.boolean().default(true),
+        duplexPrinting: z.boolean().default(true),
+        supportedBindings: z.array(z.string()).default(['None', 'Corner Staple', 'Spiral Binding']),
+      })
+      .optional(),
+  })
+  .refine((data) => data.ownerPassword || data.password, {
+    message: 'Owner password must be at least 6 characters',
+    path: ['ownerPassword'],
+  });
 
 export const PrinterCreateSchema = z.object({
   shopId: z.string().min(1, 'Shop ID is required'),

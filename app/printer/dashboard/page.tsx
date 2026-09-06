@@ -37,18 +37,30 @@ export default function PrinterDashboardPage() {
   const [uploadingQr, setUploadingQr] = useState(false);
   const [savingUpi, setSavingUpi] = useState(false);
 
-  // Counter Desk Standee QR & Customer Portal Link state
-  const [portalBaseUrl, setPortalBaseUrl] = useState('');
+  // Counter Desk Standee QR & Customer Portal Link state (Default to live Vercel domain)
+  const LIVE_VERCEL_DOMAIN = 'https://printonline-two.vercel.app';
+  const [portalBaseUrl, setPortalBaseUrl] = useState(
+    process.env.NEXT_PUBLIC_APP_URL || LIVE_VERCEL_DOMAIN
+  );
   const [editingBaseUrl, setEditingBaseUrl] = useState(false);
-  const [customBaseUrl, setCustomBaseUrl] = useState('');
+  const [customBaseUrl, setCustomBaseUrl] = useState(
+    process.env.NEXT_PUBLIC_APP_URL || LIVE_VERCEL_DOMAIN
+  );
   const [showPrintStandeeModal, setShowPrintStandeeModal] = useState(false);
   const [copiedPortalUrl, setCopiedPortalUrl] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const origin = window.location.origin;
-      setPortalBaseUrl(origin);
-      setCustomBaseUrl(origin);
+      // If deployed on a production domain (not localhost or 127.0.0.1), use that domain; otherwise strictly default to LIVE_VERCEL_DOMAIN
+      if (origin && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+        setPortalBaseUrl(origin);
+        setCustomBaseUrl(origin);
+      } else {
+        const liveUrl = process.env.NEXT_PUBLIC_APP_URL || LIVE_VERCEL_DOMAIN;
+        setPortalBaseUrl(liveUrl);
+        setCustomBaseUrl(liveUrl);
+      }
     }
   }, []);
 
@@ -88,9 +100,22 @@ export default function PrinterDashboardPage() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  // Authenticated fetch helper that automatically attaches Bearer token from localStorage
+  const shopFetch = (url: string, options: RequestInit = {}) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('printporter_token') : null;
+    const headers = new Headers(options.headers || {});
+    if (token && !headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    return fetch(url, {
+      ...options,
+      headers,
+    });
+  };
+
   // Load user session & verify role
   useEffect(() => {
-    fetch('/api/auth/me')
+    shopFetch('/api/auth/me')
       .then((res) => {
         if (!res.ok) throw new Error('Not logged in');
         return res.json();
@@ -98,17 +123,17 @@ export default function PrinterDashboardPage() {
       .then((data) => {
         if (data.authenticated) {
           if (data.user.role !== 'SHOP_OWNER' && data.user.role !== 'ADMIN') {
-            router.push('/printer/login');
+            window.location.href = '/printer/login';
             return;
           }
           setCurrentUser(data.user);
           loadDashboardData(data.user.shopId || 'shop_001');
         } else {
-          router.push('/printer/login');
+          window.location.href = '/printer/login';
         }
       })
       .catch(() => {
-        router.push('/printer/login');
+        window.location.href = '/printer/login';
       });
   }, []);
 
@@ -127,8 +152,13 @@ export default function PrinterDashboardPage() {
         if (shopData.shop?.upiId) {
           setShopUpiId(shopData.shop.upiId);
         }
-        if (shopData.shop?.upiQrUrl) {
-          setShopUpiQrUrl(shopData.shop.upiQrUrl);
+        if (shopData.shop?.upiQrUrl !== undefined) {
+          const qr = shopData.shop.upiQrUrl || '';
+          if (qr.includes('api.qrserver.com')) {
+            setShopUpiQrUrl('');
+          } else {
+            setShopUpiQrUrl(qr);
+          }
         }
       }
 
@@ -299,7 +329,10 @@ export default function PrinterDashboardPage() {
       if (res.ok) {
         const data = await res.json();
         setShopUpiQrUrl(data.file.fileUrl);
-        showNotification('Shop QR image uploaded!');
+        showNotification('Shop QR image uploaded! Click "Save UPI Settings" to apply.');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showNotification(data.error || 'Failed to upload QR image');
       }
     } catch (err) {
       showNotification('Failed to upload QR image');
@@ -311,22 +344,41 @@ export default function PrinterDashboardPage() {
   // Save UPI Settings
   const handleSaveUpi = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!shopUpiId.trim()) {
+      showNotification('Please enter a valid Shop UPI ID');
+      return;
+    }
     setSavingUpi(true);
     try {
-      const res = await fetch(`/api/shops/${shopId}`, {
+      const qrToSave =
+        shopUpiQrUrl && !shopUpiQrUrl.includes('api.qrserver.com')
+          ? shopUpiQrUrl.trim()
+          : '';
+
+      const res = await shopFetch(`/api/shops/${shopId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           upiId: shopUpiId.trim(),
-          upiQrUrl: shopUpiQrUrl.trim(),
+          upiQrUrl: qrToSave,
         }),
       });
 
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        showNotification('Shop UPI settings updated!');
+        showNotification('Shop UPI ID & Payment QR settings saved successfully!');
+        if (data.shop) {
+          setShop(data.shop);
+          if (data.shop.upiId) setShopUpiId(data.shop.upiId);
+          setShopUpiQrUrl(
+            data.shop.upiQrUrl && !data.shop.upiQrUrl.includes('api.qrserver.com')
+              ? data.shop.upiQrUrl
+              : ''
+          );
+        }
         loadDashboardData(shopId);
       } else {
-        showNotification('Failed to save UPI settings');
+        showNotification(data.error || 'Failed to save UPI settings');
       }
     } catch (err) {
       showNotification('Failed to save UPI settings');
@@ -496,7 +548,7 @@ export default function PrinterDashboardPage() {
     ['COMPLETED', 'DELIVERED'].includes(o.status)
   );
 
-  const customerPortalUrl = `${portalBaseUrl}/shop/${shopId}`;
+  const customerPortalUrl = `${portalBaseUrl.replace(/\/+$/, '')}/shop/${shopId}`;
 
   if (loading) {
     return (
@@ -1228,11 +1280,16 @@ export default function PrinterDashboardPage() {
                     />
                   </div>
 
-                  <div className="space-y-2 text-center sm:text-left">
-                    <div className="text-xs font-bold text-slate-900">
-                      Direct Ordering Portal URL:
+                  <div className="space-y-2 text-center sm:text-left flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs font-bold text-slate-900">
+                        Direct Ordering Portal URL:
+                      </div>
+                      <span className="rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold px-1.5 py-0.2">
+                        Live Domain
+                      </span>
                     </div>
-                    <div className="rounded-lg bg-white border border-slate-300 px-3 py-1.5 text-xs font-mono text-slate-800 break-all shadow-inner">
+                    <div className="rounded-lg bg-white border border-slate-300 px-3 py-1.5 text-xs font-mono text-blue-700 font-bold break-all shadow-inner">
                       {customerPortalUrl}
                     </div>
 
@@ -1241,11 +1298,12 @@ export default function PrinterDashboardPage() {
                         onClick={() => {
                           navigator.clipboard.writeText(customerPortalUrl);
                           setCopiedPortalUrl(true);
+                          showNotification('Copied live link: ' + customerPortalUrl);
                           setTimeout(() => setCopiedPortalUrl(false), 2000);
                         }}
                         className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm"
                       >
-                        {copiedPortalUrl ? 'Copied URL' : 'Copy URL'}
+                        {copiedPortalUrl ? 'Copied Live URL' : 'Copy Live URL'}
                       </button>
 
                       <button
@@ -1254,7 +1312,63 @@ export default function PrinterDashboardPage() {
                       >
                         Open Printable Placard
                       </button>
+
+                      <button
+                        onClick={() => setEditingBaseUrl(!editingBaseUrl)}
+                        className="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline"
+                      >
+                        {editingBaseUrl ? 'Close Domain Editor' : 'Edit Domain'}
+                      </button>
                     </div>
+
+                    {editingBaseUrl && (
+                      <div className="mt-2 p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs space-y-2 text-left">
+                        <label className="font-bold text-blue-900 block text-[11px]">
+                          Target Domain for Customer QR Code:
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="url"
+                            value={customBaseUrl}
+                            onChange={(e) => setCustomBaseUrl(e.target.value)}
+                            placeholder="https://printonline-two.vercel.app"
+                            className="flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 font-mono text-xs text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              let formatted = customBaseUrl.trim();
+                              if (!formatted.startsWith('http://') && !formatted.startsWith('https://')) {
+                                formatted = 'https://' + formatted;
+                              }
+                              formatted = formatted.replace(/\/+$/, '');
+                              setPortalBaseUrl(formatted);
+                              setCustomBaseUrl(formatted);
+                              setEditingBaseUrl(false);
+                              showNotification('Target domain set to: ' + formatted);
+                            }}
+                            className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1 text-xs shadow-sm shrink-0"
+                          >
+                            Apply
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px]">
+                          <span className="text-slate-500">Preset:</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPortalBaseUrl(LIVE_VERCEL_DOMAIN);
+                              setCustomBaseUrl(LIVE_VERCEL_DOMAIN);
+                              setEditingBaseUrl(false);
+                              showNotification('Target domain reset to Live Vercel App');
+                            }}
+                            className="text-blue-700 font-bold hover:underline"
+                          >
+                            Live Vercel App (printonline-two.vercel.app)
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1292,6 +1406,9 @@ export default function PrinterDashboardPage() {
                       placeholder="e.g. apexprint@okaxis or 9876543210@paytm"
                       className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 font-mono outline-none focus:border-blue-600 shadow-sm"
                     />
+                    <span className="text-[11px] text-slate-500 mt-1 block">
+                      Enter your GPay, PhonePe, Paytm, or Bank UPI ID. Walk-in customers scan this to pay with 0% commission.
+                    </span>
                   </div>
 
                   <div>
@@ -1304,15 +1421,72 @@ export default function PrinterDashboardPage() {
                       onChange={handleUploadUpiQr}
                       className="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                     />
-                    {uploadingQr && <span className="text-[11px] text-blue-600 mt-1 block">Uploading QR...</span>}
+                    {uploadingQr && <span className="text-[11px] text-blue-600 mt-1 block font-bold">Uploading QR image...</span>}
+                    <span className="text-[11px] text-slate-400 mt-1 block">
+                      Optional: Upload your counter QR standee or soundbox sticker photo. If empty, the system generates a dynamic QR with order amount.
+                    </span>
                   </div>
 
-                  {shopUpiQrUrl && (
-                    <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200">
-                      <img src={shopUpiQrUrl} alt="UPI QR" className="h-16 w-16 object-contain border border-slate-200 rounded-md bg-white p-1" />
-                      <div>
-                        <span className="font-bold text-slate-800 block">Custom Shop QR active</span>
-                        <span className="text-[10px] text-slate-500">Rendered on customer checkout</span>
+                  {/* QR Preview: Custom Uploaded QR vs Auto-Generated Dynamic QR */}
+                  {shopUpiQrUrl && !shopUpiQrUrl.includes('api.qrserver.com') ? (
+                    <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-emerald-50/70 border border-emerald-200">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img
+                          src={shopUpiQrUrl}
+                          alt="Custom Shop QR"
+                          className="h-16 w-16 object-contain border border-emerald-200 rounded-lg bg-white p-1 shadow-sm shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-emerald-900 block text-xs">
+                              Custom Standee QR Active
+                            </span>
+                            <span className="rounded bg-emerald-200/60 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5">
+                              Uploaded Image
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-emerald-700 block truncate">
+                            Rendered directly on customer checkout
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShopUpiQrUrl('');
+                          showNotification('Switched to dynamic auto-generated QR. Click "Save UPI Settings" to apply.');
+                        }}
+                        className="rounded-lg bg-white border border-emerald-300 px-2.5 py-1 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 shadow-sm shrink-0 transition"
+                      >
+                        Remove & Use Auto QR
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50/70 border border-blue-200">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+                          `upi://pay?pa=${(shopUpiId || 'yourname@upi').trim()}&pn=${encodeURIComponent(
+                            shop?.name || 'Print Shop'
+                          )}&cu=INR`
+                        )}`}
+                        alt="Dynamic UPI QR"
+                        className="h-16 w-16 object-contain border border-blue-200 rounded-lg bg-white p-1 shadow-sm shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-blue-900 block text-xs">
+                            Auto-Generated Dynamic QR Active
+                          </span>
+                          <span className="rounded bg-blue-200/60 text-blue-800 text-[10px] font-bold px-1.5 py-0.5">
+                            Live Preview
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-blue-700 block truncate font-mono mt-0.5">
+                          UPI ID: {shopUpiId.trim() || 'Not set'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 block mt-0.5">
+                          QR preview updates live as you type. Checkout dynamically encodes customer bill amount.
+                        </span>
                       </div>
                     </div>
                   )}
@@ -1639,6 +1813,71 @@ export default function PrinterDashboardPage() {
               </button>
             </div>
 
+            {/* Domain Status & Target Config */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-700">QR Target Domain:</span>
+                  <span className="rounded bg-blue-50 border border-blue-200 text-blue-700 font-mono font-bold px-2 py-0.5 text-[11px]">
+                    {portalBaseUrl}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingBaseUrl(!editingBaseUrl)}
+                  className="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline"
+                >
+                  {editingBaseUrl ? 'Close' : 'Change Domain'}
+                </button>
+              </div>
+
+              {editingBaseUrl && (
+                <div className="pt-2 border-t border-slate-200 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="url"
+                      value={customBaseUrl}
+                      onChange={(e) => setCustomBaseUrl(e.target.value)}
+                      placeholder="https://printonline-two.vercel.app"
+                      className="flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 font-mono text-xs text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        let formatted = customBaseUrl.trim();
+                        if (!formatted.startsWith('http://') && !formatted.startsWith('https://')) {
+                          formatted = 'https://' + formatted;
+                        }
+                        formatted = formatted.replace(/\/+$/, '');
+                        setPortalBaseUrl(formatted);
+                        setCustomBaseUrl(formatted);
+                        setEditingBaseUrl(false);
+                        showNotification('Target domain set to: ' + formatted);
+                      }}
+                      className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1 text-xs shadow-sm"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px]">
+                    <span className="text-slate-500">Preset:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPortalBaseUrl(LIVE_VERCEL_DOMAIN);
+                        setCustomBaseUrl(LIVE_VERCEL_DOMAIN);
+                        setEditingBaseUrl(false);
+                        showNotification('Target domain reset to Live Vercel App');
+                      }}
+                      className="text-blue-700 font-bold hover:underline"
+                    >
+                      Live Vercel App (printonline-two.vercel.app)
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Printable Counter Desk Placard Canvas */}
             <div className="border-2 border-slate-900 rounded-2xl p-6 text-center bg-white space-y-3 shadow-md">
               <div className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 text-white px-3 py-1 text-xs font-bold uppercase tracking-wider">
@@ -1661,7 +1900,7 @@ export default function PrinterDashboardPage() {
                 />
               </div>
 
-              <div className="rounded-xl bg-slate-50 border border-slate-200 p-2.5 text-xs text-slate-700 font-mono">
+              <div className="rounded-xl bg-slate-50 border border-slate-200 p-2.5 text-xs text-slate-700 font-mono break-all select-all">
                 {customerPortalUrl}
               </div>
 
@@ -1670,7 +1909,20 @@ export default function PrinterDashboardPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="flex items-center justify-between gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(customerPortalUrl);
+                  setCopiedPortalUrl(true);
+                  showNotification('Copied live link: ' + customerPortalUrl);
+                  setTimeout(() => setCopiedPortalUrl(false), 2000);
+                }}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm"
+              >
+                {copiedPortalUrl ? 'Copied Live Link!' : 'Copy Live Link'}
+              </button>
+
               <button
                 onClick={() => window.print()}
                 className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2 text-xs font-bold text-white shadow-sm"

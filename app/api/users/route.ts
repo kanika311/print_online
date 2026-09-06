@@ -157,14 +157,16 @@ export async function POST(req: NextRequest) {
 
     const { isFallback } = await connectDB();
     const body = await req.json();
-    const { name, email, phone, password, role = 'ADMIN' } = body;
-
-    if (!name || !email || !password) {
+    const { AdminCreateSchema } = await import('@/lib/validations');
+    const parsed = AdminCreateSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Name, email, and password are required' },
+        { error: parsed.error.errors[0].message },
         { status: 400 }
       );
     }
+
+    const { name, email, phone, password, role } = parsed.data;
 
     const emailLower = email.toLowerCase().trim();
     const existing = memoryStore.users.find(
@@ -186,7 +188,7 @@ export async function POST(req: NextRequest) {
       _id: newId,
       name: name.trim(),
       email: emailLower,
-      phone: phone ? phone.trim() : '+91 99999 00000',
+      phone: phone ? phone : '+91 99999 00000',
       password: hashedPassword,
       role: (role === 'ADMIN' ? 'ADMIN' : 'CUSTOMER') as any,
       avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,

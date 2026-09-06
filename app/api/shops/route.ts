@@ -122,7 +122,8 @@ export async function POST(req: NextRequest) {
 
     const shopId = `shop_${Date.now()}`;
     const ownerId = `usr_owner_${Date.now()}`;
-    const hashedPassword = await hashPassword(ownerPassword);
+    const finalPassword = ownerPassword || (parsed.data as any).password;
+    const hashedPassword = await hashPassword(finalPassword);
 
     // 1. Create Owner User
     const ownerUser = {

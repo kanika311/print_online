@@ -5,13 +5,26 @@ import { Shop } from '@/models/Shop';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
+    const params = await props.params;
     const shopId = params.id;
-    await connectDB();
+    const { isFallback } = await connectDB();
 
-    const shop = memoryStore.shops.find((s) => s._id.toString() === shopId);
+    let shop: any = null;
+    if (!isFallback) {
+      try {
+        shop = await Shop.findById(shopId).lean();
+      } catch (err) {
+        // May be string ID
+      }
+    }
+
+    if (!shop) {
+      shop = memoryStore.shops.find((s) => s._id.toString() === shopId);
+    }
+
     if (!shop) {
       return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
     }
@@ -22,7 +35,7 @@ export async function GET(
       shopId,
       shopName: shop.name,
       qrDataUrl,
-      targetUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/shop/${shopId}`,
+      targetUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://printonline-two.vercel.app'}/shop/${shopId}`,
     });
   } catch (error: any) {
     return NextResponse.json(

@@ -32,7 +32,13 @@ export default function PrinterLoginPage() {
         throw new Error('Access denied: This login is reserved for Printer Shop Owners.');
       }
 
-      router.push('/printer/dashboard');
+      if (data.token) {
+        localStorage.setItem('printporter_token', data.token);
+        localStorage.setItem('printporter_user', JSON.stringify(data.user));
+        document.cookie = `printporter_token=${data.token}; path=/; max-age=604800; SameSite=Lax; ${window.location.protocol === 'https:' ? 'Secure;' : ''}`;
+      }
+
+      window.location.href = '/printer/dashboard';
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {

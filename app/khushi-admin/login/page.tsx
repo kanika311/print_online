@@ -32,7 +32,13 @@ export default function KhushiAdminLoginPage() {
         throw new Error('Access denied: Admin credentials required');
       }
 
-      router.push('/khushi-admin');
+      if (data.token) {
+        localStorage.setItem('printporter_token', data.token);
+        localStorage.setItem('printporter_user', JSON.stringify(data.user));
+        document.cookie = `printporter_token=${data.token}; path=/; max-age=604800; SameSite=Lax; ${window.location.protocol === 'https:' ? 'Secure;' : ''}`;
+      }
+
+      window.location.href = '/khushi-admin';
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {

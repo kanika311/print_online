@@ -28,13 +28,19 @@ export default function LoginPage() {
         throw new Error(data.error || 'Failed to login');
       }
 
+      if (data.token) {
+        localStorage.setItem('printporter_token', data.token);
+        localStorage.setItem('printporter_user', JSON.stringify(data.user));
+        document.cookie = `printporter_token=${data.token}; path=/; max-age=604800; SameSite=Lax; ${window.location.protocol === 'https:' ? 'Secure;' : ''}`;
+      }
+
       // Route based on role
       if (data.user.role === 'ADMIN') {
-        router.push('/khushi-admin');
+        window.location.href = '/khushi-admin';
       } else if (data.user.role === 'SHOP_OWNER') {
-        router.push('/printer/dashboard');
+        window.location.href = '/printer/dashboard';
       } else {
-        router.push('/');
+        window.location.href = '/';
       }
     } catch (err: any) {
       setError(err.message || 'Login failed');

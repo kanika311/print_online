@@ -105,14 +105,59 @@ export default function KhushiAdminPage() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  // Form Validation Errors
+  const [shopFormErrors, setShopFormErrors] = useState<Record<string, string>>({});
+  const [editShopFormErrors, setEditShopFormErrors] = useState<Record<string, string>>({});
+  const [adminFormErrors, setAdminFormErrors] = useState<Record<string, string>>({});
+
+  // Phone and field validation helpers
+  const cleanIndianPhone = (val: string) => {
+    return val.replace(/\D/g, '').slice(0, 10);
+  };
+
+  const validatePhone = (val: string) => {
+    const clean = cleanIndianPhone(val);
+    if (!clean) return 'Mobile number is required';
+    if (!/^[6-9]\d{9}$/.test(clean)) {
+      return 'Must be a 10-digit Indian mobile number starting with 6, 7, 8, or 9';
+    }
+    return '';
+  };
+
+  const validateEmail = (val: string) => {
+    const clean = val.trim().toLowerCase();
+    if (!clean) return 'Email address is required';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+      return 'Enter a valid email address (e.g. name@example.com)';
+    }
+    return '';
+  };
+
+  // Authenticated fetch helper that automatically attaches Bearer token from localStorage
+  const adminFetch = (url: string, options: RequestInit = {}) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('printporter_token') : null;
+    const headers = new Headers(options.headers || {});
+    if (token && !headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    return fetch(url, {
+      ...options,
+      headers,
+    });
+  };
+
   const loadAllData = async () => {
     setRefreshing(true);
     try {
       // 1. Session check
-      const authRes = await fetch('/api/auth/me');
+      const authRes = await adminFetch('/api/auth/me');
+      if (!authRes.ok) {
+        window.location.href = '/khushi-admin/login';
+        return;
+      }
       const authData = await authRes.json();
       if (!authData.authenticated || authData.user.role !== 'ADMIN') {
-        router.push('/khushi-admin/login');
+        window.location.href = '/khushi-admin/login';
         return;
       }
       setCurrentAdmin(authData.user);
@@ -122,14 +167,14 @@ export default function KhushiAdminPage() {
 
       // 2. Fetch parallel endpoints
       const [anRes, shRes, usRes, ordRes, plRes, payRes, feeRes, admRes] = await Promise.all([
-        fetch('/api/analytics').then((r) => (r.ok ? r.json() : null)),
-        fetch('/api/shops').then((r) => (r.ok ? r.json() : null)),
-        fetch('/api/users').then((r) => (r.ok ? r.json() : null)),
-        fetch('/api/orders').then((r) => (r.ok ? r.json() : null)),
-        fetch('/api/plans').then((r) => (r.ok ? r.json() : null)),
-        fetch('/api/payments').then((r) => (r.ok ? r.json() : null)),
-        fetch('/api/admin/settings').then((r) => (r.ok ? r.json() : null)),
-        fetch('/api/admin/list').then((r) => (r.ok ? r.json() : null)),
+        adminFetch('/api/analytics').then((r) => (r.ok ? r.json() : null)),
+        adminFetch('/api/shops').then((r) => (r.ok ? r.json() : null)),
+        adminFetch('/api/users').then((r) => (r.ok ? r.json() : null)),
+        adminFetch('/api/orders').then((r) => (r.ok ? r.json() : null)),
+        adminFetch('/api/plans').then((r) => (r.ok ? r.json() : null)),
+        adminFetch('/api/payments').then((r) => (r.ok ? r.json() : null)),
+        adminFetch('/api/admin/settings').then((r) => (r.ok ? r.json() : null)),
+        adminFetch('/api/admin/list').then((r) => (r.ok ? r.json() : null)),
       ]);
 
       if (anRes) setAnalytics(anRes);
@@ -163,7 +208,7 @@ export default function KhushiAdminPage() {
     e.preventDefault();
     setSavingFeeSettings(true);
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await adminFetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -196,7 +241,7 @@ export default function KhushiAdminPage() {
 
     setSavingAdminProfile(true);
     try {
-      const res = await fetch('/api/admin/profile', {
+      const res = await adminFetch('/api/admin/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -228,15 +273,41 @@ export default function KhushiAdminPage() {
   // Create New Super Admin
   const handleCreateAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors: Record<string, string> = {};
+
+    if (!newAdminName.trim() || newAdminName.trim().length < 2) {
+      errors.name = 'Full name must be at least 2 characters';
+    } else if (!/^[a-zA-Z\s.]+$/.test(newAdminName.trim())) {
+      errors.name = 'Name can only contain letters and spaces';
+    }
+
+    const emailErr = validateEmail(newAdminEmail);
+    if (emailErr) errors.email = emailErr;
+
+    if (newAdminPhone) {
+      const phoneErr = validatePhone(newAdminPhone);
+      if (phoneErr) errors.phone = phoneErr;
+    }
+
+    if (!newAdminPassword.trim() || newAdminPassword.trim().length < 6) {
+      errors.password = 'Password must be at least 6 characters';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setAdminFormErrors(errors);
+      return;
+    }
+
+    setAdminFormErrors({});
     setCreatingAdmin(true);
     try {
-      const res = await fetch('/api/admin/create', {
+      const res = await adminFetch('/api/admin/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newAdminName.trim(),
-          email: newAdminEmail.trim(),
-          phone: newAdminPhone.trim(),
+          email: newAdminEmail.trim().toLowerCase(),
+          phone: newAdminPhone ? cleanIndianPhone(newAdminPhone) : undefined,
           password: newAdminPassword.trim(),
         }),
       });
@@ -267,18 +338,63 @@ export default function KhushiAdminPage() {
   // Create New Cyber Café Shop
   const handleCreateShop = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors: Record<string, string> = {};
+
+    const cleanName = shopName.trim();
+    if (!cleanName) {
+      errors.shopName = 'Shop name is required';
+    } else if (cleanName.length < 3) {
+      errors.shopName = 'Shop name must be at least 3 characters';
+    }
+
+    const cleanAddress = shopAddress.trim();
+    if (!cleanAddress) {
+      errors.shopAddress = 'Full address is required';
+    } else if (cleanAddress.length < 5) {
+      errors.shopAddress = 'Address must be at least 5 characters';
+    }
+
+    const cleanOwner = ownerName.trim();
+    if (!cleanOwner) {
+      errors.ownerName = 'Owner name is required';
+    } else if (cleanOwner.length < 2) {
+      errors.ownerName = 'Owner name must be at least 2 characters';
+    } else if (!/^[a-zA-Z\s.]+$/.test(cleanOwner)) {
+      errors.ownerName = 'Owner name can only contain letters and spaces';
+    }
+
+    const phoneErr = validatePhone(ownerPhone);
+    if (phoneErr) errors.ownerPhone = phoneErr;
+
+    const emailErr = validateEmail(ownerEmail);
+    if (emailErr) errors.ownerEmail = emailErr;
+
+    const cleanPassword = initialPassword.trim();
+    if (!cleanPassword) {
+      errors.initialPassword = 'Password is required';
+    } else if (cleanPassword.length < 6) {
+      errors.initialPassword = 'Password must be at least 6 characters';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setShopFormErrors(errors);
+      return;
+    }
+
+    setShopFormErrors({});
     setSubmittingShop(true);
     try {
-      const res = await fetch('/api/shops', {
+      const res = await adminFetch('/api/shops', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: shopName.trim(),
-          address: shopAddress.trim(),
-          ownerName: ownerName.trim(),
-          ownerEmail: ownerEmail.trim(),
-          ownerPhone: ownerPhone.trim(),
-          password: initialPassword.trim(),
+          name: cleanName,
+          address: cleanAddress,
+          ownerName: cleanOwner,
+          ownerEmail: ownerEmail.trim().toLowerCase(),
+          ownerPhone: cleanIndianPhone(ownerPhone),
+          ownerPassword: cleanPassword,
+          password: cleanPassword,
           planId: selectedPlanId,
         }),
       });
@@ -287,9 +403,9 @@ export default function KhushiAdminPage() {
       if (res.ok) {
         setShowRegisterShopModal(false);
         setNewCredentialsNotice({
-          shopName,
-          ownerEmail,
-          password: initialPassword,
+          shopName: cleanName,
+          ownerEmail: ownerEmail.trim().toLowerCase(),
+          password: cleanPassword,
           shopId: d.shop?._id || d.shop?.id,
         });
         setShopName('');
@@ -312,7 +428,7 @@ export default function KhushiAdminPage() {
   // Toggle Shop Active/Offline
   const handleToggleShopStatus = async (shopId: string, currentOnline: boolean) => {
     try {
-      const res = await fetch(`/api/shops/${shopId}`, {
+      const res = await adminFetch(`/api/shops/${shopId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isOnline: !currentOnline }),
@@ -342,15 +458,45 @@ export default function KhushiAdminPage() {
     e.preventDefault();
     if (!editingShop) return;
 
+    const errors: Record<string, string> = {};
+    if (!editShopName.trim() || editShopName.trim().length < 3) {
+      errors.name = 'Shop name must be at least 3 characters';
+    }
+    if (!editShopAddress.trim() || editShopAddress.trim().length < 5) {
+      errors.address = 'Address must be at least 5 characters';
+    }
+    if (editShopOwnerName && editShopOwnerName.trim()) {
+      if (editShopOwnerName.trim().length < 2) {
+        errors.ownerName = 'Owner name must be at least 2 characters';
+      } else if (!/^[a-zA-Z\s.]+$/.test(editShopOwnerName.trim())) {
+        errors.ownerName = 'Owner name can only contain letters and spaces';
+      }
+    }
+    if (editShopOwnerPhone) {
+      const phoneErr = validatePhone(editShopOwnerPhone);
+      if (phoneErr) errors.phone = phoneErr;
+    }
+    if (editShopUpiId && editShopUpiId.trim()) {
+      if (!/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(editShopUpiId.trim())) {
+        errors.upiId = 'Invalid UPI ID format (e.g. shopname@upi or 9876543210@paytm)';
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setEditShopFormErrors(errors);
+      return;
+    }
+
+    setEditShopFormErrors({});
     try {
-      const res = await fetch(`/api/shops/${editingShop._id || editingShop.id}`, {
+      const res = await adminFetch(`/api/shops/${editingShop._id || editingShop.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: editShopName.trim(),
           address: editShopAddress.trim(),
           ownerName: editShopOwnerName.trim(),
-          ownerPhone: editShopOwnerPhone.trim(),
+          ownerPhone: editShopOwnerPhone ? cleanIndianPhone(editShopOwnerPhone) : '',
           upiId: editShopUpiId.trim(),
         }),
       });
@@ -375,7 +521,7 @@ export default function KhushiAdminPage() {
     }
 
     try {
-      const res = await fetch(`/api/shops/${shopId}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/shops/${shopId}`, { method: 'DELETE' });
       if (res.ok) {
         showToast(`Shop "${name}" deleted.`);
         loadAllData();
@@ -391,7 +537,7 @@ export default function KhushiAdminPage() {
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/plans', {
+      const res = await adminFetch('/api/plans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -422,10 +568,12 @@ export default function KhushiAdminPage() {
   const handleDeletePlan = async (planId: string, name: string) => {
     if (!window.confirm(`Delete plan "${name}"?`)) return;
     try {
-      const res = await fetch(`/api/plans?id=${planId}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/plans?id=${planId}`, { method: 'DELETE' });
       if (res.ok) {
         showToast(`Plan "${name}" removed`);
         loadAllData();
+      } else {
+        showToast('Failed to delete plan');
       }
     } catch (e) {
       showToast('Failed to delete plan');
@@ -434,14 +582,17 @@ export default function KhushiAdminPage() {
 
   // Sign out
   const handleLogout = () => {
+    localStorage.removeItem('printporter_token');
+    localStorage.removeItem('printporter_user');
     document.cookie = 'printporter_token=; Max-Age=0; path=/;';
-    router.push('/khushi-admin/login');
+    window.location.href = '/khushi-admin/login';
   };
 
-  if (loading) {
+  if (loading || !currentAdmin) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-500">
-        <p className="text-sm font-semibold">Loading PrintPorter Admin CMS...</p>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-500 space-y-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
+        <p className="text-sm font-semibold">Verifying Admin Session...</p>
       </div>
     );
   }
@@ -1416,17 +1567,26 @@ export default function KhushiAdminPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateShop} className="space-y-3 text-xs">
+            <form onSubmit={handleCreateShop} className="space-y-3.5 text-xs">
               <div>
                 <label className="text-slate-800 font-bold mb-1 block">Shop Name *</label>
                 <input
                   type="text"
                   required
+                  maxLength={80}
                   placeholder="e.g. Apex Digital Print Hub"
                   value={shopName}
-                  onChange={(e) => setShopName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                  onChange={(e) => {
+                    setShopName(e.target.value);
+                    if (shopFormErrors.shopName) setShopFormErrors((prev) => ({ ...prev, shopName: '' }));
+                  }}
+                  className={`w-full rounded-xl border bg-white px-3 py-2 text-slate-900 outline-none shadow-sm transition ${
+                    shopFormErrors.shopName ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
+                  }`}
                 />
+                {shopFormErrors.shopName && (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-1">{shopFormErrors.shopName}</p>
+                )}
               </div>
 
               <div>
@@ -1434,33 +1594,71 @@ export default function KhushiAdminPage() {
                 <input
                   type="text"
                   required
+                  maxLength={200}
                   placeholder="e.g. Shop 12, Block B, Sector 18, Noida"
                   value={shopAddress}
-                  onChange={(e) => setShopAddress(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                  onChange={(e) => {
+                    setShopAddress(e.target.value);
+                    if (shopFormErrors.shopAddress) setShopFormErrors((prev) => ({ ...prev, shopAddress: '' }));
+                  }}
+                  className={`w-full rounded-xl border bg-white px-3 py-2 text-slate-900 outline-none shadow-sm transition ${
+                    shopFormErrors.shopAddress ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
+                  }`}
                 />
+                {shopFormErrors.shopAddress && (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-1">{shopFormErrors.shopAddress}</p>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-slate-800 font-bold mb-1 block">Owner Name</label>
+                  <label className="text-slate-800 font-bold mb-1 block">Owner Name *</label>
                   <input
                     type="text"
+                    required
+                    maxLength={50}
                     placeholder="e.g. Rajesh Kumar"
                     value={ownerName}
-                    onChange={(e) => setOwnerName(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                    onChange={(e) => {
+                      setOwnerName(e.target.value);
+                      if (shopFormErrors.ownerName) setShopFormErrors((prev) => ({ ...prev, ownerName: '' }));
+                    }}
+                    className={`w-full rounded-xl border bg-white px-3 py-2 text-slate-900 outline-none shadow-sm transition ${
+                      shopFormErrors.ownerName ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
+                    }`}
                   />
+                  {shopFormErrors.ownerName && (
+                    <p className="text-[11px] text-rose-600 font-semibold mt-1">{shopFormErrors.ownerName}</p>
+                  )}
                 </div>
+
                 <div>
-                  <label className="text-slate-800 font-bold mb-1 block">Owner Phone</label>
-                  <input
-                    type="tel"
-                    placeholder="+91 98765 43210"
-                    value={ownerPhone}
-                    onChange={(e) => setOwnerPhone(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
-                  />
+                  <label className="text-slate-800 font-bold mb-1 block">Owner Phone *</label>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3 text-xs font-bold text-slate-500 select-none">
+                      +91
+                    </span>
+                    <input
+                      type="tel"
+                      required
+                      maxLength={10}
+                      placeholder="9876543210"
+                      value={ownerPhone}
+                      onChange={(e) => {
+                        const clean = cleanIndianPhone(e.target.value);
+                        setOwnerPhone(clean);
+                        if (shopFormErrors.ownerPhone) setShopFormErrors((prev) => ({ ...prev, ownerPhone: '' }));
+                      }}
+                      className={`w-full rounded-xl border bg-white pl-11 pr-3 py-2 text-slate-900 font-mono text-xs outline-none shadow-sm transition ${
+                        shopFormErrors.ownerPhone ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
+                      }`}
+                    />
+                  </div>
+                  {shopFormErrors.ownerPhone ? (
+                    <p className="text-[11px] text-rose-600 font-semibold mt-1">{shopFormErrors.ownerPhone}</p>
+                  ) : (
+                    <p className="text-[10px] text-slate-400 mt-1">10-digit mobile number (starts with 6-9)</p>
+                  )}
                 </div>
               </div>
 
@@ -1469,11 +1667,20 @@ export default function KhushiAdminPage() {
                 <input
                   type="email"
                   required
+                  maxLength={80}
                   placeholder="owner@apexprint.com"
                   value={ownerEmail}
-                  onChange={(e) => setOwnerEmail(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                  onChange={(e) => {
+                    setOwnerEmail(e.target.value);
+                    if (shopFormErrors.ownerEmail) setShopFormErrors((prev) => ({ ...prev, ownerEmail: '' }));
+                  }}
+                  className={`w-full rounded-xl border bg-white px-3 py-2 text-slate-900 outline-none shadow-sm transition ${
+                    shopFormErrors.ownerEmail ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
+                  }`}
                 />
+                {shopFormErrors.ownerEmail && (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-1">{shopFormErrors.ownerEmail}</p>
+                )}
               </div>
 
               <div>
@@ -1481,10 +1688,21 @@ export default function KhushiAdminPage() {
                 <input
                   type="text"
                   required
+                  placeholder="At least 6 characters"
                   value={initialPassword}
-                  onChange={(e) => setInitialPassword(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 font-mono outline-none focus:border-blue-600 shadow-sm"
+                  onChange={(e) => {
+                    setInitialPassword(e.target.value);
+                    if (shopFormErrors.initialPassword) setShopFormErrors((prev) => ({ ...prev, initialPassword: '' }));
+                  }}
+                  className={`w-full rounded-xl border bg-white px-3 py-2 text-slate-900 font-mono outline-none shadow-sm transition ${
+                    shopFormErrors.initialPassword ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
+                  }`}
                 />
+                {shopFormErrors.initialPassword ? (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-1">{shopFormErrors.initialPassword}</p>
+                ) : (
+                  <p className="text-[10px] text-slate-400 mt-1">Minimum 6 characters for shopkeeper terminal login</p>
+                )}
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2">
@@ -1524,16 +1742,25 @@ export default function KhushiAdminPage() {
               </button>
             </div>
 
-            <form onSubmit={handleUpdateShopDetails} className="space-y-3 text-xs">
+            <form onSubmit={handleUpdateShopDetails} className="space-y-3.5 text-xs">
               <div>
                 <label className="text-slate-800 font-bold mb-1 block">Shop Name *</label>
                 <input
                   type="text"
                   required
+                  maxLength={80}
                   value={editShopName}
-                  onChange={(e) => setEditShopName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                  onChange={(e) => {
+                    setEditShopName(e.target.value);
+                    if (editShopFormErrors.name) setEditShopFormErrors((prev) => ({ ...prev, name: '' }));
+                  }}
+                  className={`w-full rounded-xl border bg-white px-3 py-2 text-slate-900 outline-none shadow-sm transition ${
+                    editShopFormErrors.name ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
+                  }`}
                 />
+                {editShopFormErrors.name && (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-1">{editShopFormErrors.name}</p>
+                )}
               </div>
 
               <div>
@@ -1541,41 +1768,91 @@ export default function KhushiAdminPage() {
                 <input
                   type="text"
                   required
+                  maxLength={200}
                   value={editShopAddress}
-                  onChange={(e) => setEditShopAddress(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                  onChange={(e) => {
+                    setEditShopAddress(e.target.value);
+                    if (editShopFormErrors.address) setEditShopFormErrors((prev) => ({ ...prev, address: '' }));
+                  }}
+                  className={`w-full rounded-xl border bg-white px-3 py-2 text-slate-900 outline-none shadow-sm transition ${
+                    editShopFormErrors.address ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
+                  }`}
                 />
+                {editShopFormErrors.address && (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-1">{editShopFormErrors.address}</p>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-slate-800 font-bold mb-1 block">Owner Name</label>
                   <input
                     type="text"
+                    maxLength={50}
+                    placeholder="e.g. Rajesh Kumar"
                     value={editShopOwnerName}
-                    onChange={(e) => setEditShopOwnerName(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                    onChange={(e) => {
+                      setEditShopOwnerName(e.target.value);
+                      if (editShopFormErrors.ownerName) setEditShopFormErrors((prev) => ({ ...prev, ownerName: '' }));
+                    }}
+                    className={`w-full rounded-xl border bg-white px-3 py-2 text-slate-900 outline-none shadow-sm transition ${
+                      editShopFormErrors.ownerName ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
+                    }`}
                   />
+                  {editShopFormErrors.ownerName && (
+                    <p className="text-[11px] text-rose-600 font-semibold mt-1">{editShopFormErrors.ownerName}</p>
+                  )}
                 </div>
+
                 <div>
                   <label className="text-slate-800 font-bold mb-1 block">Owner Phone</label>
-                  <input
-                    type="tel"
-                    value={editShopOwnerPhone}
-                    onChange={(e) => setEditShopOwnerPhone(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
-                  />
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3 text-xs font-bold text-slate-500 select-none">
+                      +91
+                    </span>
+                    <input
+                      type="tel"
+                      maxLength={10}
+                      placeholder="9876543210"
+                      value={editShopOwnerPhone}
+                      onChange={(e) => {
+                        const clean = cleanIndianPhone(e.target.value);
+                        setEditShopOwnerPhone(clean);
+                        if (editShopFormErrors.phone) setEditShopFormErrors((prev) => ({ ...prev, phone: '' }));
+                      }}
+                      className={`w-full rounded-xl border bg-white pl-11 pr-3 py-2 text-slate-900 font-mono text-xs outline-none shadow-sm transition ${
+                        editShopFormErrors.phone ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
+                      }`}
+                    />
+                  </div>
+                  {editShopFormErrors.phone ? (
+                    <p className="text-[11px] text-rose-600 font-semibold mt-1">{editShopFormErrors.phone}</p>
+                  ) : (
+                    <p className="text-[10px] text-slate-400 mt-1">10-digit mobile number (starts with 6-9)</p>
+                  )}
                 </div>
               </div>
 
               <div>
-                <label className="text-slate-800 font-bold mb-1 block">Shop UPI ID</label>
+                <label className="text-slate-800 font-bold mb-1 block">Shop UPI ID (for Direct Payments)</label>
                 <input
                   type="text"
+                  maxLength={100}
+                  placeholder="e.g. shopname@upi, 9876543210@paytm"
                   value={editShopUpiId}
-                  onChange={(e) => setEditShopUpiId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 font-mono outline-none focus:border-blue-600 shadow-sm"
+                  onChange={(e) => {
+                    setEditShopUpiId(e.target.value);
+                    if (editShopFormErrors.upiId) setEditShopFormErrors((prev) => ({ ...prev, upiId: '' }));
+                  }}
+                  className={`w-full rounded-xl border bg-white px-3 py-2 text-slate-900 font-mono text-xs outline-none shadow-sm transition ${
+                    editShopFormErrors.upiId ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
+                  }`}
                 />
+                {editShopFormErrors.upiId ? (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-1">{editShopFormErrors.upiId}</p>
+                ) : (
+                  <p className="text-[10px] text-slate-400 mt-1">Format: username@bank (e.g. apexprint@okaxis)</p>
+                )}
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2">
@@ -1612,7 +1889,13 @@ export default function KhushiAdminPage() {
               shopId={selectedQRShop._id || selectedQRShop.id}
               shopName={selectedQRShop.name}
               qrDataUrl={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-                `${typeof window !== 'undefined' ? window.location.origin : ''}/shop/${selectedQRShop._id || selectedQRShop.id}`
+                `${
+                  typeof window !== 'undefined' &&
+                  !window.location.origin.includes('localhost') &&
+                  !window.location.origin.includes('127.0.0.1')
+                    ? window.location.origin
+                    : process.env.NEXT_PUBLIC_APP_URL || 'https://printonline-two.vercel.app'
+                }/shop/${selectedQRShop._id || selectedQRShop.id}`
               )}`}
               address={selectedQRShop.address}
             />
@@ -1636,17 +1919,26 @@ export default function KhushiAdminPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateAdmin} className="space-y-3 text-xs">
+            <form onSubmit={handleCreateAdmin} className="space-y-3.5 text-xs">
               <div>
                 <label className="text-slate-800 font-bold mb-1 block">Full Name *</label>
                 <input
                   type="text"
                   required
+                  maxLength={50}
                   placeholder="e.g. Khushi Aggarwal"
                   value={newAdminName}
-                  onChange={(e) => setNewAdminName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                  onChange={(e) => {
+                    setNewAdminName(e.target.value);
+                    if (adminFormErrors.name) setAdminFormErrors((prev) => ({ ...prev, name: '' }));
+                  }}
+                  className={`w-full rounded-xl border bg-white px-3 py-2 text-slate-900 outline-none shadow-sm transition ${
+                    adminFormErrors.name ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
+                  }`}
                 />
+                {adminFormErrors.name && (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-1">{adminFormErrors.name}</p>
+                )}
               </div>
 
               <div>
@@ -1654,22 +1946,48 @@ export default function KhushiAdminPage() {
                 <input
                   type="email"
                   required
+                  maxLength={80}
                   placeholder="khushi@printporter.com"
                   value={newAdminEmail}
-                  onChange={(e) => setNewAdminEmail(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                  onChange={(e) => {
+                    setNewAdminEmail(e.target.value);
+                    if (adminFormErrors.email) setAdminFormErrors((prev) => ({ ...prev, email: '' }));
+                  }}
+                  className={`w-full rounded-xl border bg-white px-3 py-2 text-slate-900 outline-none shadow-sm transition ${
+                    adminFormErrors.email ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
+                  }`}
                 />
+                {adminFormErrors.email && (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-1">{adminFormErrors.email}</p>
+                )}
               </div>
 
               <div>
                 <label className="text-slate-800 font-bold mb-1 block">Phone Number</label>
-                <input
-                  type="tel"
-                  placeholder="+91 98765 43210"
-                  value={newAdminPhone}
-                  onChange={(e) => setNewAdminPhone(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
-                />
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-xs font-bold text-slate-500 select-none">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    placeholder="9876543210"
+                    value={newAdminPhone}
+                    onChange={(e) => {
+                      const clean = cleanIndianPhone(e.target.value);
+                      setNewAdminPhone(clean);
+                      if (adminFormErrors.phone) setAdminFormErrors((prev) => ({ ...prev, phone: '' }));
+                    }}
+                    className={`w-full rounded-xl border bg-white pl-11 pr-3 py-2 text-slate-900 font-mono text-xs outline-none shadow-sm transition ${
+                      adminFormErrors.phone ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
+                    }`}
+                  />
+                </div>
+                {adminFormErrors.phone ? (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-1">{adminFormErrors.phone}</p>
+                ) : (
+                  <p className="text-[10px] text-slate-400 mt-1">Optional 10-digit mobile number</p>
+                )}
               </div>
 
               <div>
@@ -1677,10 +1995,19 @@ export default function KhushiAdminPage() {
                 <input
                   type="text"
                   required
+                  placeholder="At least 6 characters"
                   value={newAdminPassword}
-                  onChange={(e) => setNewAdminPassword(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 font-mono outline-none focus:border-blue-600 shadow-sm"
+                  onChange={(e) => {
+                    setNewAdminPassword(e.target.value);
+                    if (adminFormErrors.password) setAdminFormErrors((prev) => ({ ...prev, password: '' }));
+                  }}
+                  className={`w-full rounded-xl border bg-white px-3 py-2 text-slate-900 font-mono outline-none shadow-sm transition ${
+                    adminFormErrors.password ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
+                  }`}
                 />
+                {adminFormErrors.password && (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-1">{adminFormErrors.password}</p>
+                )}
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2">

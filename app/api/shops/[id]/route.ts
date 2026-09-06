@@ -97,6 +97,7 @@ export async function GET(
 }
 
 // PATCH: Allow printer owner or admin to update pricing rates and online status
+// PATCH / PUT: Allow printer owner or admin to update pricing rates, UPI settings and online status
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -114,60 +115,141 @@ export async function PATCH(
     const shopId = params.id;
     const body = await req.json();
 
-    const shop = memoryStore.shops.find(
-      (s) => s._id.toString() === shopId
+    let memShop = memoryStore.shops.find(
+      (s) => s._id.toString() === shopId || (s.id && s.id.toString() === shopId)
     );
 
-    if (!shop) {
+    let dbShop: any = null;
+    if (!isFallback) {
+      try {
+        dbShop = await Shop.findById(shopId);
+      } catch (err) {}
+      if (!dbShop) {
+        try {
+          dbShop = await Shop.findOne({ _id: shopId });
+        } catch (err) {}
+      }
+    }
+
+    if (!memShop && !dbShop) {
       return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
     }
 
     if (body.pricingRates) {
-      shop.pricingRates = {
-        ...shop.pricingRates,
-        ...body.pricingRates,
-      };
-    }
-
-    if (body.name !== undefined) shop.name = String(body.name);
-    if (body.address !== undefined) shop.address = String(body.address);
-    if (body.phone !== undefined) shop.phone = String(body.phone);
-    if (body.startingPrice !== undefined) shop.startingPrice = Number(body.startingPrice);
-    if (body.upiId !== undefined) shop.upiId = String(body.upiId);
-    if (body.upiQrUrl !== undefined) shop.upiQrUrl = String(body.upiQrUrl);
-    if (body.activePlan !== undefined) shop.activePlan = String(body.activePlan);
-    if (body.isOnline !== undefined) shop.isOnline = Boolean(body.isOnline);
-    if (body.isBusy !== undefined) shop.isBusy = Boolean(body.isBusy);
-    if (body.isActive !== undefined && authResult.session?.role === 'ADMIN') {
-      shop.isActive = Boolean(body.isActive);
-    }
-
-    shop.updatedAt = new Date();
-
-    if (!isFallback) {
-      try {
-        await Shop.findByIdAndUpdate(shop._id, {
-          name: shop.name,
-          address: shop.address,
-          phone: shop.phone,
-          startingPrice: shop.startingPrice,
-          pricingRates: shop.pricingRates,
-          upiId: shop.upiId,
-          upiQrUrl: shop.upiQrUrl,
-          activePlan: shop.activePlan,
-          isOnline: shop.isOnline,
-          isBusy: shop.isBusy,
-          isActive: shop.isActive,
-        });
-      } catch (err) {
-        console.warn('DB update error in shop PATCH:', err);
+      if (memShop) {
+        memShop.pricingRates = {
+          ...memShop.pricingRates,
+          ...body.pricingRates,
+        };
+      }
+      if (dbShop) {
+        dbShop.pricingRates = {
+          ...dbShop.pricingRates,
+          ...body.pricingRates,
+        };
       }
     }
+
+    if (body.name !== undefined) {
+      const val = String(body.name);
+      if (memShop) memShop.name = val;
+      if (dbShop) dbShop.name = val;
+    }
+    if (body.address !== undefined) {
+      const val = String(body.address);
+      if (memShop) memShop.address = val;
+      if (dbShop) dbShop.address = val;
+    }
+    if (body.phone !== undefined) {
+      const val = String(body.phone).trim().replace(/[\s\-\(\)\+]/g, '').replace(/^91(?=\d{10}$)/, '').replace(/^0(?=\d{10}$)/, '');
+      if (val && !/^[6-9]\d{9}$/.test(val)) {
+        return NextResponse.json(
+          { error: 'Shop phone must be a valid 10-digit Indian mobile number' },
+          { status: 400 }
+        );
+      }
+      if (memShop) memShop.phone = val;
+      if (dbShop) dbShop.phone = val;
+    }
+    if (body.ownerName !== undefined) {
+      const val = String(body.ownerName).trim();
+      if (memShop) memShop.ownerName = val;
+      if (dbShop) dbShop.ownerName = val;
+    }
+    if (body.ownerPhone !== undefined) {
+      const val = String(body.ownerPhone).trim().replace(/[\s\-\(\)\+]/g, '').replace(/^91(?=\d{10}$)/, '').replace(/^0(?=\d{10}$)/, '');
+      if (val && !/^[6-9]\d{9}$/.test(val)) {
+        return NextResponse.json(
+          { error: 'Owner phone must be a valid 10-digit Indian mobile number' },
+          { status: 400 }
+        );
+      }
+      if (memShop) memShop.ownerPhone = val;
+      if (dbShop) dbShop.ownerPhone = val;
+    }
+    if (body.startingPrice !== undefined) {
+      const val = Number(body.startingPrice);
+      if (memShop) memShop.startingPrice = val;
+      if (dbShop) dbShop.startingPrice = val;
+    }
+    if (body.upiId !== undefined) {
+      const val = String(body.upiId).trim();
+      if (val && !/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(val)) {
+        return NextResponse.json(
+          { error: 'Invalid UPI ID format (e.g. shopname@upi or 9876543210@paytm)' },
+          { status: 400 }
+        );
+      }
+      if (memShop) memShop.upiId = val;
+      if (dbShop) dbShop.upiId = val;
+    }
+    if (body.upiQrUrl !== undefined) {
+      const val = String(body.upiQrUrl).trim();
+      if (memShop) memShop.upiQrUrl = val;
+      if (dbShop) dbShop.upiQrUrl = val;
+    }
+    if (body.activePlan !== undefined) {
+      const val = String(body.activePlan);
+      if (memShop) memShop.activePlan = val;
+      if (dbShop) dbShop.activePlan = val;
+    }
+    if (body.isOnline !== undefined) {
+      const val = Boolean(body.isOnline);
+      if (memShop) memShop.isOnline = val;
+      if (dbShop) dbShop.isOnline = val;
+    }
+    if (body.isBusy !== undefined) {
+      const val = Boolean(body.isBusy);
+      if (memShop) memShop.isBusy = val;
+      if (dbShop) dbShop.isBusy = val;
+    }
+    if (body.isActive !== undefined && authResult.session?.role === 'ADMIN') {
+      const val = Boolean(body.isActive);
+      if (memShop) memShop.isActive = val;
+      if (dbShop) dbShop.isActive = val;
+    }
+
+    const now = new Date();
+    if (memShop) memShop.updatedAt = now;
+
+    if (dbShop && !isFallback) {
+      dbShop.updatedAt = now;
+      try {
+        await dbShop.save();
+      } catch (err) {
+        console.warn('DB update error in shop PATCH/PUT:', err);
+      }
+    }
+
+    const resultShop = memShop || dbShop?.toObject?.() || dbShop;
 
     return NextResponse.json({
       success: true,
       message: 'Shop settings updated successfully',
-      shop,
+      shop: {
+        ...resultShop,
+        id: resultShop._id,
+      },
     });
   } catch (error: any) {
     return NextResponse.json(
@@ -176,6 +258,8 @@ export async function PATCH(
     );
   }
 }
+
+export const PUT = PATCH;
 
 // DELETE: Allow Super Admin to delete shop and associated printers
 export async function DELETE(
