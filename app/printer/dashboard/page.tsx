@@ -49,6 +49,48 @@ export default function PrinterDashboardPage() {
   const [showPrintStandeeModal, setShowPrintStandeeModal] = useState(false);
   const [copiedPortalUrl, setCopiedPortalUrl] = useState(false);
 
+  // Standee Customization & Interactive Studio States
+  const [standeeTheme, setStandeeTheme] = useState<'BLUE' | 'DARK' | 'GOLD' | 'EMERALD'>('BLUE');
+  const [standeeFormat, setStandeeFormat] = useState<'A4' | 'TENT' | 'STICKER'>('A4');
+  const [standeeTagline, setStandeeTagline] = useState('Instant Xerox • Color Printouts • Spiral Binding • ₹2/page');
+  const [standeePhone, setStandeePhone] = useState('+91 98765 43210');
+  const [showPhoneOnStandee, setShowPhoneOnStandee] = useState(true);
+  const [standeeMode, setStandeeMode] = useState<'SMART_ORDER' | 'DUAL_QR'>('SMART_ORDER');
+  const [showWalkInSimulator, setShowWalkInSimulator] = useState(false);
+  const [simulatorStep, setSimulatorStep] = useState<1 | 2 | 3 | 4>(1);
+  const [selectedUpiApp, setSelectedUpiApp] = useState<'ALL' | 'GPAY' | 'PHONEPE' | 'PAYTM' | 'BHIM'>('ALL');
+  const [isPlayingChime, setIsPlayingChime] = useState(false);
+
+  // Web Audio API Counter Arrival Chime
+  const playOrderChime = () => {
+    try {
+      setIsPlayingChime(true);
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) {
+        showNotification('🔊 Ding! Walk-in order alert chime!');
+        setTimeout(() => setIsPlayingChime(false), 600);
+        return;
+      }
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.45);
+      showNotification('🔊 Counter order chime played!');
+      setTimeout(() => setIsPlayingChime(false), 600);
+    } catch (e) {
+      showNotification('🔊 Ding! Walk-in order alert chime!');
+      setTimeout(() => setIsPlayingChime(false), 600);
+    }
+  };
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const origin = window.location.origin;
@@ -585,16 +627,21 @@ export default function PrinterDashboardPage() {
           {/* Brand & Shop Header */}
           <div className="p-4 border-b border-slate-200 flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs tracking-wider shrink-0">
-                PP
-              </div>
+              <Link href="/" className="shrink-0 group">
+                <img
+                  src="/logo.png"
+                  alt="Prinly.in"
+                  className="h-8 w-auto object-contain transition group-hover:scale-105"
+                />
+              </Link>
               <div className="min-w-0">
                 <span className="font-heading text-xs font-bold text-slate-900 truncate block" title={shop?.name}>
-                  {shop?.name || 'Printer Terminal'}
+                  {shop?.name || 'Prinly Hub Terminal'}
                 </span>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
-                    Online Terminal
+                  <span className="text-[10px] font-extrabold text-cyan-800 bg-cyan-50 border border-cyan-200 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Hub Terminal Live
                   </span>
                 </div>
               </div>
@@ -794,19 +841,44 @@ export default function PrinterDashboardPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {activeTab === 'UPI_PAYMENT' && (
+              <>
+                <button
+                  type="button"
+                  onClick={playOrderChime}
+                  className={`hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-xs ${
+                    isPlayingChime ? 'border-blue-500 text-blue-600 bg-blue-50' : ''
+                  }`}
+                  title="Test counter bell"
+                >
+                  <span>🔊</span>
+                  <span>{isPlayingChime ? 'Chiming...' : 'Test Bell'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowWalkInSimulator(true)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100 transition shadow-xs"
+                >
+                  <span>📱</span>
+                  <span>Simulator</span>
+                </button>
+              </>
+            )}
+
             <button
               onClick={() => loadDashboardData(shopId)}
-              className="rounded-lg border border-slate-300 bg-white px-2.5 sm:px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm"
+              className="rounded-xl border border-slate-300 bg-white px-2.5 sm:px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-xs"
             >
               {refreshing ? 'Refreshing...' : 'Refresh'}
             </button>
 
             <button
               onClick={() => setShowPrintStandeeModal(true)}
-              className="rounded-lg bg-blue-600 hover:bg-blue-700 px-2.5 sm:px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition"
+              className="rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 px-3 sm:px-3.5 py-1.5 text-xs font-black text-white shadow-md shadow-blue-600/20 transition active:scale-95"
             >
-              Desk QR
+              🖨️ Desk Standee
             </button>
           </div>
         </header>
@@ -1257,248 +1329,934 @@ export default function PrinterDashboardPage() {
 
           {/* TAB 3: COUNTER DESK STANDEE & UPI SETUP */}
           {activeTab === 'UPI_PAYMENT' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Standee QR Card */}
-              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                  <div>
-                    <h3 className="font-heading text-sm font-bold text-slate-900">
-                      Counter Desk Standee Placard
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Display this QR code at your cyber café counter for walk-in customers.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <div className="bg-white border border-slate-200 p-3 rounded-xl shadow-sm">
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(customerPortalUrl)}`}
-                      alt="Customer Standee QR"
-                      className="h-36 w-36 object-contain"
-                    />
-                  </div>
-
-                  <div className="space-y-2 text-center sm:text-left flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-xs font-bold text-slate-900">
-                        Direct Ordering Portal URL:
-                      </div>
-                      <span className="rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold px-1.5 py-0.2">
-                        Live Domain
+            <div className="space-y-6">
+              {/* 1. Header Banner & Quick Readiness Metric */}
+              <div className="rounded-3xl border border-slate-200/80 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 p-6 text-white shadow-xl shadow-blue-950/10">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                  <div className="space-y-2 max-w-2xl">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="rounded-full bg-cyan-400/20 border border-cyan-400/30 px-3 py-0.5 text-[11px] font-black uppercase tracking-widest text-cyan-300 backdrop-blur-md">
+                        2026 Counter Smart Hub
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 px-3 py-0.5 text-[11px] font-black text-emerald-300">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                        0% Commission Direct Settlement
                       </span>
                     </div>
-                    <div className="rounded-lg bg-white border border-slate-300 px-3 py-1.5 text-xs font-mono text-blue-700 font-bold break-all shadow-inner">
-                      {customerPortalUrl}
-                    </div>
+                    <h2 className="font-heading text-xl sm:text-2xl font-black tracking-tight text-white">
+                      Desk Standee QR & Direct Shop UPI Hub
+                    </h2>
+                    <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                      Display this smart standee at your cyber café counter. Walk-in customers scan with their smartphone camera, upload files in 10 seconds, and payment lands 100% directly into your UPI account with zero waiting and zero deductions.
+                    </p>
+                  </div>
 
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(customerPortalUrl);
-                          setCopiedPortalUrl(true);
-                          showNotification('Copied live link: ' + customerPortalUrl);
-                          setTimeout(() => setCopiedPortalUrl(false), 2000);
-                        }}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm"
-                      >
-                        {copiedPortalUrl ? 'Copied Live URL' : 'Copy Live URL'}
-                      </button>
+                  {/* Header Quick Actions */}
+                  <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={playOrderChime}
+                      className={`inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 hover:bg-white/20 backdrop-blur-md px-4 py-2.5 text-xs font-bold text-white transition active:scale-95 shadow-sm ${
+                        isPlayingChime ? 'ring-2 ring-cyan-400 bg-white/30' : ''
+                      }`}
+                      title="Test how incoming order chime sounds"
+                    >
+                      <span>🔊</span>
+                      <span>{isPlayingChime ? 'Playing...' : 'Test Counter Bell'}</span>
+                    </button>
 
-                      <button
-                        onClick={() => setShowPrintStandeeModal(true)}
-                        className="rounded-lg bg-blue-600 hover:bg-blue-700 px-4 py-1.5 text-xs font-bold text-white shadow-sm"
-                      >
-                        Open Printable Placard
-                      </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowWalkInSimulator(true)}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-cyan-400/40 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 backdrop-blur-md px-4 py-2.5 text-xs font-bold text-cyan-200 transition active:scale-95 shadow-sm"
+                    >
+                      <span>📱</span>
+                      <span>Walk-in Simulator</span>
+                    </button>
 
-                      <button
-                        onClick={() => setEditingBaseUrl(!editingBaseUrl)}
-                        className="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline"
-                      >
-                        {editingBaseUrl ? 'Close Domain Editor' : 'Edit Domain'}
-                      </button>
-                    </div>
-
-                    {editingBaseUrl && (
-                      <div className="mt-2 p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs space-y-2 text-left">
-                        <label className="font-bold text-blue-900 block text-[11px]">
-                          Target Domain for Customer QR Code:
-                        </label>
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="url"
-                            value={customBaseUrl}
-                            onChange={(e) => setCustomBaseUrl(e.target.value)}
-                            placeholder="https://printonline-two.vercel.app"
-                            className="flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 font-mono text-xs text-slate-900 outline-none focus:border-blue-600 shadow-sm"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              let formatted = customBaseUrl.trim();
-                              if (!formatted.startsWith('http://') && !formatted.startsWith('https://')) {
-                                formatted = 'https://' + formatted;
-                              }
-                              formatted = formatted.replace(/\/+$/, '');
-                              setPortalBaseUrl(formatted);
-                              setCustomBaseUrl(formatted);
-                              setEditingBaseUrl(false);
-                              showNotification('Target domain set to: ' + formatted);
-                            }}
-                            className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1 text-xs shadow-sm shrink-0"
-                          >
-                            Apply
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-2 text-[10px]">
-                          <span className="text-slate-500">Preset:</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPortalBaseUrl(LIVE_VERCEL_DOMAIN);
-                              setCustomBaseUrl(LIVE_VERCEL_DOMAIN);
-                              setEditingBaseUrl(false);
-                              showNotification('Target domain reset to Live Vercel App');
-                            }}
-                            className="text-blue-700 font-bold hover:underline"
-                          >
-                            Live Vercel App (printonline-two.vercel.app)
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowPrintStandeeModal(true)}
+                      className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 px-5 py-2.5 text-xs font-black text-slate-950 transition active:scale-95 shadow-lg shadow-cyan-500/25"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                      </svg>
+                      <span>Print Desk Standee</span>
+                    </button>
                   </div>
                 </div>
 
-                <div className="text-xs text-slate-500 space-y-1">
-                  <div className="font-bold text-slate-800">How walk-in customers use it:</div>
-                  <ol className="list-decimal list-inside space-y-1 pl-1">
-                    <li>Customer scans this QR code with their mobile camera.</li>
-                    <li>Opens your cyber café's page directly — no typing required.</li>
-                    <li>Customer uploads files, pays via Shop UPI or Cash, and machine prints immediately.</li>
-                  </ol>
+                {/* 3 Real-time Status Badges */}
+                <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3 pt-5 border-t border-white/10 text-xs">
+                  <div className="flex items-center gap-3 rounded-2xl bg-white/5 p-3 border border-white/10">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-400/20 text-cyan-300 font-black">
+                      ✓
+                    </div>
+                    <div>
+                      <div className="font-bold text-white">Standee Readiness</div>
+                      <div className="text-[11px] text-cyan-300 font-semibold">Active & Live for Counter Scan</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 rounded-2xl bg-white/5 p-3 border border-white/10">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-400/20 text-emerald-300 font-black">
+                      ₹
+                    </div>
+                    <div>
+                      <div className="font-bold text-white">Direct P2P Settlement</div>
+                      <div className="text-[11px] text-emerald-300 font-semibold">100% to your UPI • 0% Platform Cut</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 rounded-2xl bg-white/5 p-3 border border-white/10">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-400/20 text-indigo-300 font-black">
+                      ⚡
+                    </div>
+                    <div>
+                      <div className="font-bold text-white">Avg Walk-in Queue Time</div>
+                      <div className="text-[11px] text-indigo-200 font-semibold">10 Seconds (Zero WhatsApp Lag)</div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Direct Shop UPI Setup Form */}
-              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-                <div className="border-b border-slate-200 pb-3">
-                  <h3 className="font-heading text-sm font-bold text-slate-900">
-                    Direct Shop UPI ID & Standee QR
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Customers will pay directly to your shopkeeper UPI account with 0% platform deductions.
-                  </p>
+              {/* 2. Step-by-Step Setup Guide ("Very Easy to Use") */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-xs font-black">
+                      💡
+                    </span>
+                    <h3 className="font-heading text-sm font-black text-slate-900">
+                      Quick 3-Step Setup for Cyber Café Counter
+                    </h3>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500">
+                    Takes under 1 minute
+                  </span>
                 </div>
 
-                <form onSubmit={handleSaveUpi} className="space-y-4 text-xs">
-                  <div>
-                    <label className="text-slate-800 font-bold mb-1 block">
-                      Shop UPI ID (VPA) *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={shopUpiId}
-                      onChange={(e) => setShopUpiId(e.target.value)}
-                      placeholder="e.g. apexprint@okaxis or 9876543210@paytm"
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 font-mono outline-none focus:border-blue-600 shadow-sm"
-                    />
-                    <span className="text-[11px] text-slate-500 mt-1 block">
-                      Enter your GPay, PhonePe, Paytm, or Bank UPI ID. Walk-in customers scan this to pay with 0% commission.
-                    </span>
-                  </div>
-
-                  <div>
-                    <label className="text-slate-800 font-bold mb-1 block">
-                      Upload Shop Payment QR Image (Optional)
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleUploadUpiQr}
-                      className="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                    />
-                    {uploadingQr && <span className="text-[11px] text-blue-600 mt-1 block font-bold">Uploading QR image...</span>}
-                    <span className="text-[11px] text-slate-400 mt-1 block">
-                      Optional: Upload your counter QR standee or soundbox sticker photo. If empty, the system generates a dynamic QR with order amount.
-                    </span>
-                  </div>
-
-                  {/* QR Preview: Custom Uploaded QR vs Auto-Generated Dynamic QR */}
-                  {shopUpiQrUrl && !shopUpiQrUrl.includes('api.qrserver.com') ? (
-                    <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-emerald-50/70 border border-emerald-200">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <img
-                          src={shopUpiQrUrl}
-                          alt="Custom Shop QR"
-                          className="h-16 w-16 object-contain border border-emerald-200 rounded-lg bg-white p-1 shadow-sm shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-emerald-900 block text-xs">
-                              Custom Standee QR Active
-                            </span>
-                            <span className="rounded bg-emerald-200/60 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5">
-                              Uploaded Image
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-emerald-700 block truncate">
-                            Rendered directly on customer checkout
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShopUpiQrUrl('');
-                          showNotification('Switched to dynamic auto-generated QR. Click "Save UPI Settings" to apply.');
-                        }}
-                        className="rounded-lg bg-white border border-emerald-300 px-2.5 py-1 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 shadow-sm shrink-0 transition"
-                      >
-                        Remove & Use Auto QR
-                      </button>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/50 to-white p-4 space-y-2 transition hover:shadow-md">
+                    <div className="flex items-center justify-between">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-600 text-white font-black text-xs">
+                        1
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                        Theme & Format
+                      </span>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50/70 border border-blue-200">
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
-                          `upi://pay?pa=${(shopUpiId || 'yourname@upi').trim()}&pn=${encodeURIComponent(
-                            shop?.name || 'Print Shop'
-                          )}&cu=INR`
-                        )}`}
-                        alt="Dynamic UPI QR"
-                        className="h-16 w-16 object-contain border border-blue-200 rounded-lg bg-white p-1 shadow-sm shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
+                    <h4 className="font-heading text-xs font-black text-slate-900">
+                      Customize Your Standee
+                    </h4>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Pick your theme below (Blue, Dark, Cyber Gold, or Emerald), choose A4 Acrylic or Foldable Tent Card, and print ready for lamination.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/50 to-white p-4 space-y-2 transition hover:shadow-md">
+                    <div className="flex items-center justify-between">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-600 text-white font-black text-xs">
+                        2
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">
+                        Instant Bank Credit
+                      </span>
+                    </div>
+                    <h4 className="font-heading text-xs font-black text-slate-900">
+                      Connect Your Shop UPI
+                    </h4>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Type your GPay, PhonePe, or Paytm UPI ID. Walk-in payments go straight into your bank account with 0% platform commission.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/50 to-white p-4 space-y-2 transition hover:shadow-md">
+                    <div className="flex items-center justify-between">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-600 text-white font-black text-xs">
+                        3
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                        Ready to Earn
+                      </span>
+                    </div>
+                    <h4 className="font-heading text-xs font-black text-slate-900">
+                      Place on Desk & Watch Prints
+                    </h4>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Walk-in customers scan with their phone camera, select documents, pay, and your dashboard chimes as prints spool out immediately.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Main 2-Column Grid: Interactive Standee Studio + Direct Shopkeeper UPI Gateway */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* LEFT COLUMN (7 cols): Interactive Standee Studio & 3D Mockup */}
+                <div className="lg:col-span-7 space-y-5">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
+                    {/* Header + Theme Switcher */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
+                      <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-blue-900 block text-xs">
-                            Auto-Generated Dynamic QR Active
-                          </span>
-                          <span className="rounded bg-blue-200/60 text-blue-800 text-[10px] font-bold px-1.5 py-0.5">
-                            Live Preview
+                          <h3 className="font-heading text-base font-black text-slate-900">
+                            Interactive Standee Placard Studio
+                          </h3>
+                          <span className="rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold px-2 py-0.5">
+                            Live 3D Preview
                           </span>
                         </div>
-                        <span className="text-[11px] text-blue-700 block truncate font-mono mt-0.5">
-                          UPI ID: {shopUpiId.trim() || 'Not set'}
-                        </span>
-                        <span className="text-[10px] text-slate-500 block mt-0.5">
-                          QR preview updates live as you type. Checkout dynamically encodes customer bill amount.
-                        </span>
+                        <p className="text-xs text-slate-500">
+                          Customized in real-time for your counter display
+                        </p>
+                      </div>
+
+                      {/* Theme Selector Pills */}
+                      <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200 self-start sm:self-auto">
+                        {[
+                          { id: 'BLUE', label: '💎 Prinly Blue' },
+                          { id: 'DARK', label: '🖤 Midnight' },
+                          { id: 'GOLD', label: '⚡ Cyber Gold' },
+                          { id: 'EMERALD', label: '🌿 Emerald' },
+                        ].map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setStandeeTheme(t.id as any)}
+                            className={`rounded-xl px-2.5 py-1 text-[11px] font-bold transition ${
+                              standeeTheme === t.id
+                                ? 'bg-white text-slate-900 shadow-sm'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
                       </div>
                     </div>
-                  )}
 
+                    {/* Format Selector Pills */}
+                    <div className="flex items-center justify-between gap-2 p-2.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs">
+                      <span className="font-bold text-slate-700 text-[11px] flex items-center gap-1.5">
+                        <span>📐 Placard Format:</span>
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {[
+                          { id: 'A4', label: 'A4 Counter Frame' },
+                          { id: 'TENT', label: 'Foldable Tent Card' },
+                          { id: 'STICKER', label: 'Mini Sticker (4x6)' },
+                        ].map((f) => (
+                          <button
+                            key={f.id}
+                            type="button"
+                            onClick={() => setStandeeFormat(f.id as any)}
+                            className={`rounded-xl px-2.5 py-1 text-[11px] font-bold transition ${
+                              standeeFormat === f.id
+                                ? 'bg-blue-600 text-white shadow-sm'
+                                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                            }`}
+                          >
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 3D Acrylic Counter Standee Visual Mockup */}
+                    <div className="relative mx-auto max-w-md py-4">
+                      {/* Realistic Acrylic Standee Shadow & 3D Frame */}
+                      <div
+                        className={`relative mx-auto rounded-3xl p-6 sm:p-7 text-center shadow-2xl transition-all duration-300 ${
+                          standeeTheme === 'BLUE'
+                            ? 'bg-gradient-to-b from-white via-blue-50/40 to-slate-50 border-2 border-blue-200 ring-1 ring-blue-500/10'
+                            : standeeTheme === 'DARK'
+                            ? 'bg-gradient-to-b from-slate-900 via-slate-800 to-slate-950 border-2 border-slate-700 ring-1 ring-cyan-500/20 text-white'
+                            : standeeTheme === 'GOLD'
+                            ? 'bg-gradient-to-b from-amber-50/90 via-yellow-50/50 to-white border-2 border-amber-300 ring-1 ring-amber-500/20'
+                            : 'bg-gradient-to-b from-emerald-50/60 via-teal-50/30 to-white border-2 border-emerald-300 ring-1 ring-emerald-500/20'
+                        }`}
+                      >
+                        {/* Format Indicator Tag */}
+                        <div className="absolute top-3 right-3">
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                              standeeTheme === 'DARK'
+                                ? 'bg-slate-800 text-cyan-400 border border-slate-700'
+                                : 'bg-white text-slate-700 border border-slate-200 shadow-xs'
+                            }`}
+                          >
+                            {standeeFormat === 'A4' && 'A4 Acrylic Standee'}
+                            {standeeFormat === 'TENT' && 'Foldable Table Tent'}
+                            {standeeFormat === 'STICKER' && 'Machine Glass Sticker'}
+                          </span>
+                        </div>
+
+                        {/* Top Brand Banner */}
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                          <img
+                            src="/logo.png"
+                            alt="Prinly.in"
+                            className="h-9 w-auto object-contain"
+                          />
+                        </div>
+
+                        <div className="mb-2">
+                          <span
+                            className={`inline-block rounded-full px-3 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                              standeeTheme === 'DARK'
+                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                                : standeeTheme === 'GOLD'
+                                ? 'bg-amber-200 text-amber-950 border border-amber-300'
+                                : standeeTheme === 'EMERALD'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                : 'bg-blue-100 text-blue-800 border border-blue-200'
+                            }`}
+                          >
+                            Verified Cyber Café Partner
+                          </span>
+                          <h4
+                            className={`font-heading text-lg font-black mt-1.5 leading-tight ${
+                              standeeTheme === 'DARK' ? 'text-white' : 'text-slate-900'
+                            }`}
+                          >
+                            {shop?.name || 'Apex Digital Print & Cyber Cafe'}
+                          </h4>
+                          <p
+                            className={`text-[11px] line-clamp-1 mt-0.5 ${
+                              standeeTheme === 'DARK' ? 'text-slate-400' : 'text-slate-500'
+                            }`}
+                          >
+                            {shop?.address || 'Counter Standee • Instant Pickup'}
+                          </p>
+                          {standeeTagline && (
+                            <p
+                              className={`text-[11px] font-bold mt-1 px-3 py-1 rounded-xl inline-block ${
+                                standeeTheme === 'DARK'
+                                  ? 'bg-slate-800 text-cyan-300 border border-slate-700'
+                                  : 'bg-white/80 text-slate-700 border border-slate-200 shadow-xs'
+                              }`}
+                            >
+                              ⚡ {standeeTagline}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* QR Code Section: Single Smart QR vs Dual QR */}
+                        {standeeMode === 'SMART_ORDER' ? (
+                          <div className="relative mx-auto my-3 w-52 rounded-2xl bg-white p-3.5 border-2 border-slate-900 shadow-xl ring-4 ring-slate-900/5">
+                            <img
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
+                                customerPortalUrl
+                              )}`}
+                              alt="Counter Standee QR"
+                              className="h-44 w-44 mx-auto object-contain"
+                            />
+                            <div className="mt-2 text-center">
+                              <span
+                                className={`inline-block rounded-full px-3 py-0.5 text-[9px] font-black uppercase tracking-widest ${
+                                  standeeTheme === 'GOLD'
+                                    ? 'bg-amber-400 text-slate-950'
+                                    : 'bg-slate-900 text-cyan-400'
+                                }`}
+                              >
+                                Scan to Print Instantly
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-2.5 my-3">
+                            {/* QR 1: Order Portal */}
+                            <div className="rounded-2xl bg-white p-2.5 border-2 border-blue-600 shadow-md">
+                              <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+                                  customerPortalUrl
+                                )}`}
+                                alt="Order Portal QR"
+                                className="h-28 w-28 mx-auto object-contain"
+                              />
+                              <div className="mt-1 text-[9px] font-black text-blue-700 uppercase">
+                                1. Upload Documents
+                              </div>
+                            </div>
+
+                            {/* QR 2: Direct UPI */}
+                            <div className="rounded-2xl bg-white p-2.5 border-2 border-emerald-600 shadow-md">
+                              <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+                                  `upi://pay?pa=${(shopUpiId || 'apexprint@okaxis').trim()}&pn=${encodeURIComponent(
+                                    shop?.name || 'Prinly Partner'
+                                  )}&cu=INR`
+                                )}`}
+                                alt="Direct UPI QR"
+                                className="h-28 w-28 mx-auto object-contain"
+                              />
+                              <div className="mt-1 text-[9px] font-black text-emerald-700 uppercase">
+                                2. Pay Shop UPI
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 3 Step Visual Instructions */}
+                        <div
+                          className={`grid grid-cols-3 gap-1.5 pt-3 border-t text-[10px] font-bold ${
+                            standeeTheme === 'DARK'
+                              ? 'border-slate-800 text-slate-300'
+                              : 'border-slate-200/80 text-slate-700'
+                          }`}
+                        >
+                          <div
+                            className={`p-1.5 rounded-xl border ${
+                              standeeTheme === 'DARK'
+                                ? 'bg-slate-800 border-slate-700 text-slate-300'
+                                : 'bg-white border-slate-200/60'
+                            }`}
+                          >
+                            <div className="text-blue-500 font-black">1. Scan</div>
+                            <div className="text-[9px] opacity-70 font-normal">Phone Camera</div>
+                          </div>
+                          <div
+                            className={`p-1.5 rounded-xl border ${
+                              standeeTheme === 'DARK'
+                                ? 'bg-slate-800 border-slate-700 text-slate-300'
+                                : 'bg-white border-slate-200/60'
+                            }`}
+                          >
+                            <div className="text-cyan-500 font-black">2. Upload</div>
+                            <div className="text-[9px] opacity-70 font-normal">PDF or Photo</div>
+                          </div>
+                          <div
+                            className={`p-1.5 rounded-xl border ${
+                              standeeTheme === 'DARK'
+                                ? 'bg-slate-800 border-slate-700 text-slate-300'
+                                : 'bg-white border-slate-200/60'
+                            }`}
+                          >
+                            <div className="text-emerald-500 font-black">3. Collect</div>
+                            <div className="text-[9px] opacity-70 font-normal">Machine Tray</div>
+                          </div>
+                        </div>
+
+                        {/* Optional Phone / Helpline Badge */}
+                        {showPhoneOnStandee && (
+                          <div
+                            className={`mt-2.5 text-[10px] font-mono font-bold flex items-center justify-center gap-1.5 ${
+                              standeeTheme === 'DARK' ? 'text-slate-400' : 'text-slate-600'
+                            }`}
+                          >
+                            <span>📞 Shop Helpline:</span>
+                            <span className="text-blue-600 font-extrabold">{standeePhone}</span>
+                          </div>
+                        )}
+
+                        <div
+                          className={`mt-2 text-[10px] font-semibold ${
+                            standeeTheme === 'DARK' ? 'text-slate-500' : 'text-slate-400'
+                          }`}
+                        >
+                          ⚡ Zero Waiting • Direct Shop UPI • 100% Privacy Protected
+                        </div>
+
+                        {/* Foldable Tent Card Visual Cut/Fold Line Indicator */}
+                        {standeeFormat === 'TENT' && (
+                          <div className="mt-3 pt-2 border-t-2 border-dashed border-slate-400/60 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                            ✂ Fold Along Dotted Line for Table Tent Stand
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Acrylic Stand Bevel Base Mockup */}
+                      <div className="mx-auto mt-1 h-3 w-48 rounded-full bg-gradient-to-r from-slate-300 via-slate-200 to-slate-300 shadow-md blur-[0.5px]" />
+                    </div>
+
+                    {/* Interactive Standee Customizer Form */}
+                    <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-3.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-heading text-xs font-black text-slate-900">
+                          Standee Text & Display Customizer
+                        </span>
+                        <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                          Live Update
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                            Counter Tagline (Services Highlight):
+                          </label>
+                          <input
+                            type="text"
+                            value={standeeTagline}
+                            onChange={(e) => setStandeeTagline(e.target.value)}
+                            placeholder="e.g. Instant Xerox • Color Printouts • Spiral Binding"
+                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 outline-none focus:border-blue-600 shadow-xs"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[11px] font-bold text-slate-700">
+                              Shop Phone / WhatsApp:
+                            </label>
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={showPhoneOnStandee}
+                                onChange={(e) => setShowPhoneOnStandee(e.target.checked)}
+                                className="rounded text-blue-600 focus:ring-0"
+                              />
+                              <span className="text-[10px] font-bold text-slate-500">Show</span>
+                            </label>
+                          </div>
+                          <input
+                            type="text"
+                            value={standeePhone}
+                            onChange={(e) => setStandeePhone(e.target.value)}
+                            placeholder="+91 98765 43210"
+                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 outline-none focus:border-blue-600 shadow-xs"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Standee Mode Switcher: Single Smart QR vs Dual QR */}
+                      <div className="flex items-center justify-between gap-3 pt-1 border-t border-slate-200">
+                        <span className="text-[11px] font-bold text-slate-700">
+                          Standee QR Mode:
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setStandeeMode('SMART_ORDER')}
+                            className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                              standeeMode === 'SMART_ORDER'
+                                ? 'bg-slate-900 text-white shadow-xs'
+                                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                            }`}
+                          >
+                            Single Smart QR (Recommended)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setStandeeMode('DUAL_QR')}
+                            className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                              standeeMode === 'DUAL_QR'
+                                ? 'bg-slate-900 text-white shadow-xs'
+                                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                            }`}
+                          >
+                            Dual QRs (Order + UPI)
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Customer Portal Link & 1-Click Action Bar */}
+                    <div className="space-y-3 pt-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-slate-800">
+                          Direct Customer Ordering URL (Encodes in QR)
+                        </span>
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          Live Verified
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={customerPortalUrl}
+                          className="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-xs font-mono text-blue-700 font-bold outline-none shadow-inner select-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(customerPortalUrl);
+                            setCopiedPortalUrl(true);
+                            showNotification('Copied customer order URL to clipboard!');
+                            setTimeout(() => setCopiedPortalUrl(false), 2000);
+                          }}
+                          className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 text-xs shadow-sm transition active:scale-95 shrink-0"
+                        >
+                          {copiedPortalUrl ? '✓ Copied!' : 'Copy Link'}
+                        </button>
+                      </div>
+
+                      {/* 1-Click Quick Action Buttons Strip */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowPrintStandeeModal(true)}
+                          className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95 shadow-sm"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            <path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                          </svg>
+                          <span>Print Standee</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(
+                              customerPortalUrl
+                            )}`;
+                            link.download = `${(shop?.name || 'Shop').replace(/\s+/g, '_')}_Standee_QR.png`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            showNotification('Downloading high-res QR code...');
+                          }}
+                          className="rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95 shadow-xs"
+                        >
+                          <span>📥 Download PNG</span>
+                        </button>
+
+                        <a
+                          href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                            `Hi! Skip the counter queue at ${shop?.name || 'our cyber café'}. Upload your documents directly here to print: ${customerPortalUrl}`
+                          )}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95"
+                        >
+                          <span>💬 WhatsApp Link</span>
+                        </a>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowWalkInSimulator(true)}
+                          className="rounded-xl border border-cyan-200 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95"
+                        >
+                          <span>📱 Test Scan</span>
+                        </button>
+                      </div>
+
+                      {/* Domain Settings Dropdown */}
+                      <div className="flex items-center justify-between pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditingBaseUrl(!editingBaseUrl)}
+                          className="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline"
+                        >
+                          {editingBaseUrl ? '▲ Close Domain Settings' : '⚙ Custom Domain / Target URL Settings'}
+                        </button>
+
+                        <a
+                          href={customerPortalUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] font-bold text-slate-600 hover:text-blue-600 flex items-center gap-1"
+                        >
+                          <span>Open Live Shop Page</span>
+                          <span>↗</span>
+                        </a>
+                      </div>
+
+                      {editingBaseUrl && (
+                        <div className="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200 text-xs space-y-2.5 animate-in fade-in">
+                          <label className="font-bold text-blue-950 block text-[11px]">
+                            Target Domain encoded into Counter Standee QR:
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="url"
+                              value={customBaseUrl}
+                              onChange={(e) => setCustomBaseUrl(e.target.value)}
+                              placeholder="https://printonline-two.vercel.app"
+                              className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-xs text-slate-900 outline-none focus:border-blue-600 shadow-xs"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                let formatted = customBaseUrl.trim();
+                                if (!formatted.startsWith('http://') && !formatted.startsWith('https://')) {
+                                  formatted = 'https://' + formatted;
+                                }
+                                formatted = formatted.replace(/\/+$/, '');
+                                setPortalBaseUrl(formatted);
+                                setCustomBaseUrl(formatted);
+                                setEditingBaseUrl(false);
+                                showNotification('Target domain set to: ' + formatted);
+                              }}
+                              className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 text-xs shadow-xs"
+                            >
+                              Apply
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-slate-600">
+                            <span>Preset:</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPortalBaseUrl(LIVE_VERCEL_DOMAIN);
+                                setCustomBaseUrl(LIVE_VERCEL_DOMAIN);
+                                setEditingBaseUrl(false);
+                                showNotification('Domain reset to Live Vercel App');
+                              }}
+                              className="text-blue-700 font-bold hover:underline"
+                            >
+                              Live Vercel Production (printonline-two.vercel.app)
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN (5 cols): Direct Shopkeeper UPI Gateway (0% Commission) */}
+                <div className="lg:col-span-5 space-y-5">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
+                    {/* Header with authentic Indian Payment badges */}
+                    <div className="border-b border-slate-100 pb-3.5 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-heading text-base font-black text-slate-900">
+                          Direct Shopkeeper UPI Gateway
+                        </h3>
+                        <span className="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black px-2.5 py-0.5">
+                          0% Fee Direct
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Customers pay directly to your personal or current bank account with 0% platform deductions.
+                      </p>
+
+                      {/* Payment App Badges with authentic gradient accents */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        {[
+                          { id: 'GPAY', name: 'Google Pay', color: 'border-blue-300 text-blue-700 bg-blue-50' },
+                          { id: 'PHONEPE', name: 'PhonePe', color: 'border-purple-300 text-purple-700 bg-purple-50' },
+                          { id: 'PAYTM', name: 'Paytm', color: 'border-sky-300 text-sky-700 bg-sky-50' },
+                          { id: 'BHIM', name: 'BHIM UPI', color: 'border-amber-300 text-amber-700 bg-amber-50' },
+                        ].map((app) => (
+                          <button
+                            key={app.id}
+                            type="button"
+                            onClick={() => setSelectedUpiApp(app.id as any)}
+                            className={`rounded-xl border px-2.5 py-1 text-[10px] font-black transition ${
+                              selectedUpiApp === app.id
+                                ? `${app.color} ring-2 ring-blue-500/20 shadow-xs`
+                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {app.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleSaveUpi} className="space-y-4 text-xs">
+                      {/* Shop UPI ID (VPA) Input */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-slate-900 font-black text-xs block">
+                            Shop UPI ID (VPA) *
+                          </label>
+                          {shopUpiId.includes('@') && shopUpiId.length > 4 ? (
+                            <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                              <span>✓</span> Valid VPA • Instant P2P
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              Enter your UPI handle
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="relative">
+                          <input
+                            type="text"
+                            required
+                            value={shopUpiId}
+                            onChange={(e) => setShopUpiId(e.target.value)}
+                            placeholder="e.g. apexprint@okaxis or 9876543210@paytm"
+                            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-900 font-mono text-sm font-bold outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100 shadow-inner"
+                          />
+                        </div>
+
+                        {/* 1-Click Quick Preset Handle Chips */}
+                        <div className="mt-2.5 space-y-1.5">
+                          <span className="text-[10px] text-slate-400 font-bold block">
+                            1-Click handle presets (tap to append):
+                          </span>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {['@okaxis', '@okhdfcbank', '@paytm', '@ybl', '@oksbi', '@upi', '@icici'].map((handle) => (
+                              <button
+                                key={handle}
+                                type="button"
+                                onClick={() => {
+                                  const base = (shopUpiId.split('@')[0] || 'apexprint').trim();
+                                  setShopUpiId(`${base}${handle}`);
+                                }}
+                                className="rounded-xl bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 px-2.5 py-1 text-[10px] font-mono font-bold text-slate-700 transition active:scale-95"
+                              >
+                                {handle}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Payment Mode: Dynamic Bill Amount QR vs Soundbox Photo */}
+                      <div className="space-y-3 pt-2">
+                        <label className="text-slate-900 font-black text-xs block">
+                          Walk-in Payment Experience Mode
+                        </label>
+
+                        {/* Option 1: Dynamic Bill QR (Recommended) */}
+                        <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-white border-2 border-blue-200 shadow-xs space-y-2.5">
+                          <div className="flex items-start gap-3">
+                            <img
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+                                `upi://pay?pa=${(shopUpiId || 'apexprint@okaxis').trim()}&pn=${encodeURIComponent(
+                                  shop?.name || 'Prinly Partner Shop'
+                                )}&cu=INR`
+                              )}`}
+                              alt="Live Dynamic QR"
+                              className="h-20 w-20 object-contain rounded-2xl bg-white p-1.5 border border-blue-300 shadow-sm shrink-0"
+                            />
+                            <div className="space-y-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-black text-blue-900">
+                                  Dynamic Amount QR (Active)
+                                </span>
+                                <span className="text-[9px] font-black bg-blue-600 text-white px-2 py-0.5 rounded-full">
+                                  Recommended
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-600 leading-snug">
+                                When customers order prints (e.g. ₹24), their payment app opens with ₹24 pre-filled. Zero manual typing = 0% payment errors!
+                              </p>
+                              <div className="text-[10px] font-mono text-blue-700 font-bold truncate">
+                                Direct to: {shopUpiId || 'yourname@upi'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Option 2: Upload Counter Soundbox Photo (Optional) */}
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-slate-700 font-bold text-xs">
+                              Counter Soundbox / Static QR Photo (Optional)
+                            </label>
+                            {shopUpiQrUrl && !shopUpiQrUrl.includes('api.qrserver.com') && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShopUpiQrUrl('');
+                                  showNotification('Removed photo. Switched to Dynamic QR.');
+                                }}
+                                className="text-[10px] text-rose-600 font-bold hover:underline"
+                              >
+                                Remove & Use Dynamic
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-500 leading-tight">
+                            If you already have a Paytm / PhonePe Soundbox or sticker at your counter, you can upload its photo.
+                          </p>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleUploadUpiQr}
+                            className="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white file:text-slate-800 file:border file:border-slate-300 hover:file:bg-slate-100"
+                          />
+                          {uploadingQr && (
+                            <span className="text-[11px] text-blue-600 mt-1 block font-bold animate-pulse">
+                              Uploading photo...
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Zero Commission Transparent Ledger */}
+                      <div className="rounded-2xl bg-emerald-50/60 border border-emerald-200 p-3.5 space-y-1.5 text-xs text-emerald-950">
+                        <div className="flex items-center justify-between font-bold">
+                          <span>Prinly Platform Deduction:</span>
+                          <span className="font-mono text-emerald-700 font-black">₹0.00 (0%)</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-emerald-800">
+                          <span>Bank Credit Speed:</span>
+                          <span className="font-bold">Instant (Direct P2P)</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex items-center justify-end">
+                        <button
+                          type="submit"
+                          disabled={savingUpi}
+                          className="w-full sm:w-auto rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 px-7 py-3 text-xs font-black text-white shadow-lg shadow-blue-600/25 transition active:scale-95 disabled:opacity-50"
+                        >
+                          {savingUpi ? 'Saving Changes...' : 'Save & Activate UPI Settings'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Walk-In Customer Experience Visual Flow */}
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="font-heading text-sm font-black text-slate-900">
+                      How Walk-in Printing Works with Counter Placard
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      No crowd at your counter, no WhatsApp files from strangers, zero waiting queues.
+                    </p>
+                  </div>
                   <button
-                    type="submit"
-                    disabled={savingUpi}
-                    className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition disabled:opacity-50"
+                    type="button"
+                    onClick={() => setShowWalkInSimulator(true)}
+                    className="rounded-xl border border-blue-200 bg-blue-50 text-blue-700 px-3.5 py-1.5 text-xs font-bold hover:bg-blue-100 transition self-start sm:self-auto"
                   >
-                    {savingUpi ? 'Saving Settings...' : 'Save UPI Settings'}
+                    📱 Test Walk-in Scan Experience →
                   </button>
-                </form>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-4 space-y-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 text-white font-black text-xs shadow-sm">
+                      1
+                    </div>
+                    <div className="font-heading text-xs font-black text-slate-900">
+                      Customer Scans Counter QR
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Customer aims their smartphone camera at your desk standee. Opens your cyber café page immediately without installing any application.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-4 space-y-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-600 text-white font-black text-xs shadow-sm">
+                      2
+                    </div>
+                    <div className="font-heading text-xs font-black text-slate-900">
+                      Uploads Files & Picks Settings
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Customer uploads files (PDF, DOCX, Photos), picks Black & White or Colour, single or double sided, and sees your live rate card bill.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-4 space-y-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-600 text-white font-black text-xs shadow-sm">
+                      3
+                    </div>
+                    <div className="font-heading text-xs font-black text-slate-900">
+                      Direct Pay & Instant Spool
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Money arrives to your shop UPI with 0% fee. Your dashboard queue chimes, and warm prints roll out of your printer machine tray!
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1797,138 +2555,277 @@ export default function PrinterDashboardPage() {
         </main>
       </div>
 
-      {/* MODAL 1: Counter Desk Standee Printable Placard */}
-      {showPrintStandeeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-heading text-sm font-bold text-slate-900">
-                Desk Standee Placard (Print Preview)
-              </h3>
-              <button
-                onClick={() => setShowPrintStandeeModal(false)}
-                className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200"
-              >
-                Close
-              </button>
+      {/* MODAL 1: Walk-In Customer Mobile Scanner Simulator */}
+      {showWalkInSimulator && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-3 sm:p-4 backdrop-blur-md animate-in fade-in">
+          <div className="relative w-full max-w-sm rounded-[40px] border-4 border-slate-700 bg-slate-900 p-3 shadow-2xl ring-1 ring-white/20">
+            {/* Phone Top Notch & Status Bar */}
+            <div className="relative mx-auto h-5 w-32 rounded-b-xl bg-slate-900 flex items-center justify-center gap-1.5 mb-2 z-10">
+              <div className="h-2 w-2 rounded-full bg-slate-800" />
+              <div className="h-1.5 w-10 rounded-full bg-slate-800" />
             </div>
 
-            {/* Domain Status & Target Config */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-700">QR Target Domain:</span>
-                  <span className="rounded bg-blue-50 border border-blue-200 text-blue-700 font-mono font-bold px-2 py-0.5 text-[11px]">
-                    {portalBaseUrl}
+            {/* Simulated Phone Screen */}
+            <div className="relative rounded-[32px] bg-slate-50 text-slate-900 overflow-hidden shadow-inner flex flex-col h-[640px]">
+              {/* Mobile Browser Address Bar */}
+              <div className="bg-white border-b border-slate-200 px-3 py-2 flex items-center justify-between text-[11px] select-none">
+                <div className="flex items-center gap-1.5 text-emerald-600 font-bold">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 016 0v2h2V7a5 5 0 00-5-5z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-slate-800 font-mono text-[10px] truncate max-w-[170px]">
+                    prinly.in/shop/{shopId}
                   </span>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setEditingBaseUrl(!editingBaseUrl)}
-                  className="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline"
+                  onClick={() => setShowWalkInSimulator(false)}
+                  className="rounded-full bg-slate-100 hover:bg-slate-200 p-1 text-slate-500 font-bold"
                 >
-                  {editingBaseUrl ? 'Close' : 'Change Domain'}
+                  ✕
                 </button>
               </div>
 
-              {editingBaseUrl && (
-                <div className="pt-2 border-t border-slate-200 space-y-2">
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="url"
-                      value={customBaseUrl}
-                      onChange={(e) => setCustomBaseUrl(e.target.value)}
-                      placeholder="https://printonline-two.vercel.app"
-                      className="flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 font-mono text-xs text-slate-900 outline-none focus:border-blue-600 shadow-sm"
-                    />
+              {/* Step Flow Indicator */}
+              <div className="bg-blue-600 text-white px-3 py-1.5 flex items-center justify-between text-[10px] font-bold">
+                <span>Customer Mobile Scan Journey</span>
+                <span className="bg-blue-800/80 px-2 py-0.5 rounded-full font-mono">
+                  Step {simulatorStep} of 4
+                </span>
+              </div>
+
+              {/* Phone Screen Scrollable Body */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3.5 text-xs">
+                {/* STAGE 1: Welcome & File Upload */}
+                {simulatorStep === 1 && (
+                  <div className="space-y-3 animate-in fade-in">
+                    <div className="text-center space-y-1">
+                      <img src="/logo.png" alt="Prinly" className="h-7 w-auto mx-auto object-contain" />
+                      <h4 className="font-heading text-sm font-black text-slate-900">
+                        {shop?.name || 'Apex Digital Print & Cyber Cafe'}
+                      </h4>
+                      <p className="text-[10px] text-slate-500">
+                        Walk-in Counter Print • Fast Instant Pickup
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border-2 border-dashed border-blue-400 bg-blue-50/50 p-4 text-center space-y-2">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white font-black mx-auto">
+                        📄
+                      </div>
+                      <div className="font-bold text-slate-900 text-xs">
+                        Select Document to Print
+                      </div>
+                      <p className="text-[10px] text-slate-500">
+                        PDF, Word Document, or Image Photo
+                      </p>
+                      <div className="p-2 rounded-xl bg-white border border-blue-200 text-left flex items-center justify-between">
+                        <div className="truncate min-w-0 pr-2">
+                          <div className="font-bold text-slate-900 text-[11px] truncate">
+                            College_Project_Final_2026.pdf
+                          </div>
+                          <div className="text-[9px] text-slate-500">16 pages • 3.8 MB</div>
+                        </div>
+                        <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                          ✓ Ready
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setSimulatorStep(2)}
+                      className="w-full rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 text-xs shadow-md transition active:scale-95"
+                    >
+                      Continue to Print Options →
+                    </button>
+                  </div>
+                )}
+
+                {/* STAGE 2: Settings & Rate Calculator */}
+                {simulatorStep === 2 && (
+                  <div className="space-y-3 animate-in fade-in">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <span className="font-heading text-xs font-black text-slate-900">
+                        Print Configuration
+                      </span>
+                      <span className="text-[10px] text-slate-500">16 pages</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-700 block">Print Type:</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-xl border-2 border-blue-600 bg-blue-50/60 p-2.5 text-center">
+                          <div className="font-black text-slate-900 text-xs">B&W Xerox</div>
+                          <div className="text-[10px] text-blue-700 font-bold">₹1.50 / page</div>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-white p-2.5 text-center opacity-70">
+                          <div className="font-bold text-slate-900 text-xs">Colour</div>
+                          <div className="text-[10px] text-slate-500">₹8.00 / page</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-700 block">Sides:</label>
+                      <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-2 text-[11px] font-bold text-slate-800 flex justify-between">
+                        <span>Double Sided (Duplex)</span>
+                        <span className="text-emerald-700">8 sheets</span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-slate-900 text-white p-3 space-y-1">
+                      <div className="flex justify-between text-[11px] text-slate-400">
+                        <span>Rate (16 pages duplex):</span>
+                        <span>₹12.00</span>
+                      </div>
+                      <div className="flex justify-between font-heading text-sm font-black text-cyan-300 pt-1 border-t border-slate-800">
+                        <span>Total Walk-in Bill:</span>
+                        <span>₹12.00</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSimulatorStep(1)}
+                        className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSimulatorStep(3)}
+                        className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 text-xs shadow-md transition active:scale-95"
+                      >
+                        Proceed to Direct UPI Pay →
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* STAGE 3: Instant UPI Payment */}
+                {simulatorStep === 3 && (
+                  <div className="space-y-3 animate-in fade-in">
+                    <div className="rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 p-4 text-white text-center space-y-1 shadow-md">
+                      <div className="text-[10px] uppercase font-black tracking-widest text-emerald-200">
+                        Direct P2P Payment
+                      </div>
+                      <div className="font-heading text-2xl font-black">₹12.00</div>
+                      <div className="text-[11px] text-emerald-100 font-mono">
+                        To: {shopUpiId || 'apexprint@okaxis'}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        Customer opens their UPI app:
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="rounded-xl border border-blue-200 bg-blue-50 p-2 text-center font-bold text-blue-700 text-[10px]">
+                          Google Pay
+                        </div>
+                        <div className="rounded-xl border border-purple-200 bg-purple-50 p-2 text-center font-bold text-purple-700 text-[10px]">
+                          PhonePe
+                        </div>
+                        <div className="rounded-xl border border-sky-200 bg-sky-50 p-2 text-center font-bold text-sky-700 text-[10px]">
+                          Paytm
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-[10px] text-slate-600 space-y-0.5">
+                      <div>✓ Amount auto-filled: ₹12.00</div>
+                      <div>✓ Verified recipient: {shop?.name || 'Cyber Café'}</div>
+                      <div>✓ 0% Platform Deduction: 100% hits shop bank</div>
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => {
-                        let formatted = customBaseUrl.trim();
-                        if (!formatted.startsWith('http://') && !formatted.startsWith('https://')) {
-                          formatted = 'https://' + formatted;
-                        }
-                        formatted = formatted.replace(/\/+$/, '');
-                        setPortalBaseUrl(formatted);
-                        setCustomBaseUrl(formatted);
-                        setEditingBaseUrl(false);
-                        showNotification('Target domain set to: ' + formatted);
+                        setSimulatorStep(4);
+                        playOrderChime();
                       }}
-                      className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1 text-xs shadow-sm"
+                      className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 text-xs shadow-lg shadow-emerald-600/30 transition active:scale-95"
                     >
-                      Apply
+                      ✓ Simulate Successful UPI Payment
                     </button>
                   </div>
-                  <div className="flex items-center gap-2 text-[10px]">
-                    <span className="text-slate-500">Preset:</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPortalBaseUrl(LIVE_VERCEL_DOMAIN);
-                        setCustomBaseUrl(LIVE_VERCEL_DOMAIN);
-                        setEditingBaseUrl(false);
-                        showNotification('Target domain reset to Live Vercel App');
-                      }}
-                      className="text-blue-700 font-bold hover:underline"
-                    >
-                      Live Vercel App (printonline-two.vercel.app)
-                    </button>
+                )}
+
+                {/* STAGE 4: Success & Send to Queue */}
+                {simulatorStep === 4 && (
+                  <div className="space-y-3.5 text-center animate-in fade-in">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 border-2 border-emerald-300 text-emerald-700 text-2xl font-black mx-auto">
+                      ✓
+                    </div>
+
+                    <div className="space-y-1">
+                      <h4 className="font-heading text-base font-black text-slate-900">
+                        Order Spooled Instantly!
+                      </h4>
+                      <p className="text-[11px] text-slate-600">
+                        Payment of ₹12.00 received in your shop UPI account. Machine is ready to print.
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3 text-left space-y-1 text-[11px]">
+                      <div className="flex justify-between font-bold text-slate-900">
+                        <span>Job: College_Project_Final_2026.pdf</span>
+                        <span className="text-blue-600">Ready</span>
+                      </div>
+                      <div className="text-slate-500">8 Sheets Duplex • Tray 1 HP LaserJet</div>
+                      <div className="text-emerald-700 font-mono font-bold">UPI Ref: UPI/WALK/{Date.now().toString().slice(-6)}</div>
+                    </div>
+
+                    <div className="space-y-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const mockOrder = {
+                            _id: `walkin_${Date.now()}`,
+                            id: `walkin_${Date.now()}`,
+                            customerName: 'Walk-in Customer (Standee)',
+                            customerEmail: 'walkin@student.edu',
+                            fileName: 'College_Project_Final_2026.pdf',
+                            pageCount: 16,
+                            copies: 1,
+                            colorMode: 'MONOCHROME',
+                            duplex: true,
+                            paperSize: 'A4',
+                            amount: 12,
+                            status: 'QUEUED',
+                            paymentType: 'ONLINE_UPI',
+                            paymentStatus: 'PAID',
+                            createdAt: new Date().toISOString(),
+                          };
+                          setOrders((prev) => [mockOrder, ...prev]);
+                          playOrderChime();
+                          showNotification('Test walk-in order added to your Live Print Queue!');
+                          setShowWalkInSimulator(false);
+                          setSimulatorStep(1);
+                        }}
+                        className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-2.5 text-xs shadow-md transition active:scale-95"
+                      >
+                        🚀 Push This Order to Live Print Queue
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSimulatorStep(1)}
+                        className="w-full rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold py-2 text-xs"
+                      >
+                        Restart Simulator
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* Printable Counter Desk Placard Canvas */}
-            <div className="border-2 border-slate-900 rounded-2xl p-6 text-center bg-white space-y-3 shadow-md">
-              <div className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 text-white px-3 py-1 text-xs font-bold uppercase tracking-wider">
-                PrintPorter Counter Desk
+                )}
               </div>
 
-              <h2 className="font-heading text-xl font-black text-slate-900 leading-tight">
-                {shop?.name || 'Cyber Café Printing'}
-              </h2>
-
-              <p className="text-xs text-slate-600">
-                Scan with Phone Camera or Google Lens to Upload & Print Instantly
-              </p>
-
-              <div className="inline-block p-4 border-2 border-slate-300 rounded-2xl bg-white shadow-inner my-2">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(customerPortalUrl)}`}
-                  alt="Placard QR"
-                  className="h-44 w-44 object-contain mx-auto"
-                />
+              {/* Bottom Phone Bar */}
+              <div className="bg-white border-t border-slate-200 p-2 text-center">
+                <div className="mx-auto h-1 w-24 rounded-full bg-slate-300" />
               </div>
-
-              <div className="rounded-xl bg-slate-50 border border-slate-200 p-2.5 text-xs text-slate-700 font-mono break-all select-all">
-                {customerPortalUrl}
-              </div>
-
-              <div className="text-[11px] text-slate-500 font-medium">
-                Direct GPay / PhonePe / Cash • No Waiting in Queue
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(customerPortalUrl);
-                  setCopiedPortalUrl(true);
-                  showNotification('Copied live link: ' + customerPortalUrl);
-                  setTimeout(() => setCopiedPortalUrl(false), 2000);
-                }}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm"
-              >
-                {copiedPortalUrl ? 'Copied Live Link!' : 'Copy Live Link'}
-              </button>
-
-              <button
-                onClick={() => window.print()}
-                className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2 text-xs font-bold text-white shadow-sm"
-              >
-                Print Standee (A4)
-              </button>
             </div>
           </div>
         </div>
@@ -2196,6 +3093,320 @@ export default function PrinterDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: Counter Desk Standee & Printable Placard */}
+      {showPrintStandeeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-3 sm:p-5 backdrop-blur-md animate-in fade-in">
+          {/* Print Isolation Stylesheet */}
+          <style dangerouslySetInnerHTML={{ __html: `
+            @media print {
+              body * {
+                visibility: hidden !important;
+              }
+              #printable-counter-standee, #printable-counter-standee * {
+                visibility: visible !important;
+              }
+              #printable-counter-standee {
+                position: fixed !important;
+                left: 0 !important;
+                right: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                max-width: 680px !important;
+                margin: 20px auto !important;
+                border: 2px solid #0f172a !important;
+                box-shadow: none !important;
+                padding: 36px 30px !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+              }
+            }
+          `}} />
+
+          <div className="relative w-full max-w-xl max-h-[95vh] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-5 sm:p-7 shadow-2xl space-y-5">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <h3 className="font-heading text-base font-black text-slate-900">
+                  Print Ready Counter Desk Standee
+                </h3>
+                <span className="rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold px-2.5 py-0.5">
+                  A4 / Lamination Ready
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPrintStandeeModal(false)}
+                className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200 transition"
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            {/* Modal Theme & Format Quick Toggles */}
+            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-slate-600 text-[11px]">Theme:</span>
+                {[
+                  { id: 'BLUE', label: '💎 Blue' },
+                  { id: 'DARK', label: '🖤 Dark' },
+                  { id: 'GOLD', label: '⚡ Gold' },
+                  { id: 'EMERALD', label: '🌿 Emerald' },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setStandeeTheme(t.id as any)}
+                    className={`rounded-lg px-2 py-0.5 text-[10px] font-bold transition ${
+                      standeeTheme === t.id
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-slate-600 text-[11px]">Format:</span>
+                {[
+                  { id: 'A4', label: 'A4' },
+                  { id: 'TENT', label: 'Tent' },
+                  { id: 'STICKER', label: 'Sticker' },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setStandeeFormat(f.id as any)}
+                    className={`rounded-lg px-2 py-0.5 text-[10px] font-bold transition ${
+                      standeeFormat === f.id
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Placard Paper Preview Canvas (Matches Selected Theme & Format) */}
+            <div
+              id="printable-counter-standee"
+              className={`rounded-3xl border-2 p-7 text-center shadow-xl space-y-4 max-w-md mx-auto transition-all ${
+                standeeTheme === 'BLUE'
+                  ? 'border-blue-300 bg-gradient-to-b from-white via-blue-50/40 to-slate-50 text-slate-900 ring-2 ring-blue-100'
+                  : standeeTheme === 'DARK'
+                  ? 'border-slate-800 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white'
+                  : standeeTheme === 'GOLD'
+                  ? 'border-amber-400 bg-gradient-to-b from-amber-50 via-yellow-50/50 to-white text-slate-950'
+                  : 'border-emerald-300 bg-gradient-to-b from-emerald-50 via-teal-50/40 to-white text-slate-900'
+              }`}
+            >
+              {/* Brand Header */}
+              <div className="flex items-center justify-center gap-2">
+                <img
+                  src="/logo.png"
+                  alt="Prinly.in"
+                  className="h-10 w-auto object-contain mx-auto"
+                />
+              </div>
+
+              <div>
+                <span
+                  className={`inline-block rounded-full px-3.5 py-0.5 text-[10px] font-black uppercase tracking-widest ${
+                    standeeTheme === 'DARK'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                      : standeeTheme === 'GOLD'
+                      ? 'bg-amber-200 text-amber-950 border border-amber-300'
+                      : standeeTheme === 'EMERALD'
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      : 'bg-blue-100 text-blue-800 border border-blue-200'
+                  }`}
+                >
+                  Official Cyber Café Partner
+                </span>
+                <h2
+                  className={`mt-2 font-heading text-xl sm:text-2xl font-black leading-tight ${
+                    standeeTheme === 'DARK' ? 'text-white' : 'text-slate-900'
+                  }`}
+                >
+                  {shop?.name || 'Apex Digital Print & Cyber Cafe'}
+                </h2>
+                <p
+                  className={`text-xs mt-1 ${
+                    standeeTheme === 'DARK' ? 'text-slate-400' : 'text-slate-500'
+                  }`}
+                >
+                  {shop?.address || 'Counter Standee • Instant Pickup'}
+                </p>
+                {standeeTagline && (
+                  <p
+                    className={`mt-1.5 inline-block text-xs font-bold px-3 py-1 rounded-xl ${
+                      standeeTheme === 'DARK'
+                        ? 'bg-slate-800 text-cyan-300 border border-slate-700'
+                        : 'bg-white text-slate-800 border border-slate-200 shadow-xs'
+                    }`}
+                  >
+                    ⚡ {standeeTagline}
+                  </p>
+                )}
+              </div>
+
+              {/* QR Code Container */}
+              {standeeMode === 'SMART_ORDER' ? (
+                <div className="relative mx-auto my-3 w-56 rounded-2xl bg-white p-4 border-2 border-slate-900 shadow-md">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
+                      customerPortalUrl
+                    )}`}
+                    alt="Walk-in Order QR"
+                    className="h-48 w-48 mx-auto object-contain"
+                  />
+                  <div className="mt-2 text-center">
+                    <span className="inline-block rounded-full bg-slate-900 px-3 py-0.5 text-[9px] font-black uppercase tracking-widest text-cyan-400">
+                      Scan with any phone camera
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 my-3">
+                  <div className="rounded-2xl bg-white p-2.5 border-2 border-blue-600 shadow-md">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                        customerPortalUrl
+                      )}`}
+                      alt="Order QR"
+                      className="h-32 w-32 mx-auto object-contain"
+                    />
+                    <div className="mt-1 text-[9px] font-black text-blue-700 uppercase">
+                      1. Upload Files
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-white p-2.5 border-2 border-emerald-600 shadow-md">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                        `upi://pay?pa=${(shopUpiId || 'apexprint@okaxis').trim()}&pn=${encodeURIComponent(
+                          shop?.name || 'Prinly Partner'
+                        )}&cu=INR`
+                      )}`}
+                      alt="UPI QR"
+                      className="h-32 w-32 mx-auto object-contain"
+                    />
+                    <div className="mt-1 text-[9px] font-black text-emerald-700 uppercase">
+                      2. Pay Shop UPI
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 3 Simple Steps */}
+              <div
+                className={`space-y-1.5 text-left text-xs p-3.5 rounded-2xl border font-medium ${
+                  standeeTheme === 'DARK'
+                    ? 'bg-slate-900 border-slate-800 text-slate-300'
+                    : 'bg-slate-50 border-slate-200 text-slate-700'
+                }`}
+              >
+                <div
+                  className={`flex items-center gap-2 font-bold ${
+                    standeeTheme === 'DARK' ? 'text-white' : 'text-slate-900'
+                  }`}
+                >
+                  <span className="h-5 w-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center shrink-0">
+                    1
+                  </span>
+                  <span>Point camera at this QR code</span>
+                </div>
+                <div
+                  className={`flex items-center gap-2 font-bold ${
+                    standeeTheme === 'DARK' ? 'text-white' : 'text-slate-900'
+                  }`}
+                >
+                  <span className="h-5 w-5 rounded-full bg-cyan-600 text-white text-[10px] flex items-center justify-center shrink-0">
+                    2
+                  </span>
+                  <span>Upload your document & select settings</span>
+                </div>
+                <div
+                  className={`flex items-center gap-2 font-bold ${
+                    standeeTheme === 'DARK' ? 'text-white' : 'text-slate-900'
+                  }`}
+                >
+                  <span className="h-5 w-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center shrink-0">
+                    3
+                  </span>
+                  <span>Pay shop UPI/Cash and collect hot prints!</span>
+                </div>
+              </div>
+
+              {showPhoneOnStandee && (
+                <div
+                  className={`text-[11px] font-mono font-bold flex items-center justify-center gap-1.5 ${
+                    standeeTheme === 'DARK' ? 'text-slate-400' : 'text-slate-600'
+                  }`}
+                >
+                  <span>📞 Shop Helpline:</span>
+                  <span className="text-blue-600 font-extrabold">{standeePhone}</span>
+                </div>
+              )}
+
+              <div
+                className={`pt-2 text-[10px] font-semibold border-t ${
+                  standeeTheme === 'DARK'
+                    ? 'border-slate-800 text-slate-500'
+                    : 'border-slate-100 text-slate-400'
+                }`}
+              >
+                Powered by Prinly.in • Zero WhatsApp Waiting • 100% Privacy
+              </div>
+
+              {standeeFormat === 'TENT' && (
+                <div className="pt-2 border-t-2 border-dashed border-slate-400 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                  ✂ Cut / Fold Along Dotted Line
+                </div>
+              )}
+            </div>
+
+            {/* Action Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <span className="text-xs text-slate-500">
+                Tip: Print on cardstock paper (250gsm) or insert into standard acrylic T-stand.
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(
+                      customerPortalUrl
+                    )}`;
+                    link.download = `${(shop?.name || 'Shop').replace(/\s+/g, '_')}_Standee_QR.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showNotification('Downloading high-res QR code...');
+                  }}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition"
+                >
+                  Download PNG
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2 text-xs font-black text-white shadow-md transition active:scale-95 flex items-center gap-1.5"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                  <span>Print Placard Now</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

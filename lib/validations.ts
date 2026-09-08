@@ -38,6 +38,7 @@ export const AdminCreateSchema = z.object({
     .transform((val) => (val ? sanitizePhoneNumber(val) : '')),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   role: z.enum(['ADMIN', 'CUSTOMER']).optional().default('ADMIN'),
+  promoteExisting: z.boolean().optional(),
 });
 
 

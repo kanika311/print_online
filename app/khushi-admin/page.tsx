@@ -10,6 +10,7 @@ type AdminTab =
   | 'SHOPS'
   | 'ORDERS'
   | 'PLANS'
+  | 'CMS'
   | 'PLATFORM_FEES'
   | 'PAYMENTS'
   | 'USERS'
@@ -57,6 +58,7 @@ export default function KhushiAdminPage() {
   const [newAdminPassword, setNewAdminPassword] = useState('Admin@2026');
   const [creatingAdmin, setCreatingAdmin] = useState(false);
   const [newAdminCredentialsNotice, setNewAdminCredentialsNotice] = useState<any>(null);
+  const [promoteCandidate, setPromoteCandidate] = useState<any>(null);
 
   // Shop Modals
   const [showRegisterShopModal, setShowRegisterShopModal] = useState(false);
@@ -83,17 +85,40 @@ export default function KhushiAdminPage() {
   const [selectedPlanId, setSelectedPlanId] = useState('plan_free_pioneer');
   const [submittingShop, setSubmittingShop] = useState(false);
 
-  // Subscription Plan Modals
+  // Subscription Plan Modals & CRUD
   const [showAddPlanModal, setShowAddPlanModal] = useState(false);
   const [planName, setPlanName] = useState('');
   const [planPriceMonthly, setPlanPriceMonthly] = useState(0);
+  const [planPriceYearly, setPlanPriceYearly] = useState(0);
   const [planMaxPrinters, setPlanMaxPrinters] = useState(2);
   const [planMaxOrders, setPlanMaxOrders] = useState(1000);
+  const [planCommissionRate, setPlanCommissionRate] = useState(3.0);
   const [planDescription, setPlanDescription] = useState('');
+  const [planFeatures, setPlanFeatures] = useState('');
+  const [planIsPopular, setPlanIsPopular] = useState(false);
 
-  // Edit Plan
+  // Edit Plan Modal & State
   const [showEditPlanModal, setShowEditPlanModal] = useState(false);
   const [editingPlan, setEditingPlan] = useState<any>(null);
+  const [editPlanName, setEditPlanName] = useState('');
+  const [editPlanPriceMonthly, setEditPlanPriceMonthly] = useState(0);
+  const [editPlanPriceYearly, setEditPlanPriceYearly] = useState(0);
+  const [editPlanMaxPrinters, setEditPlanMaxPrinters] = useState(2);
+  const [editPlanMaxOrders, setEditPlanMaxOrders] = useState(1000);
+  const [editPlanCommissionRate, setEditPlanCommissionRate] = useState(3.0);
+  const [editPlanDescription, setEditPlanDescription] = useState('');
+  const [editPlanFeatures, setEditPlanFeatures] = useState('');
+  const [editPlanIsActive, setEditPlanIsActive] = useState(true);
+  const [editPlanIsPopular, setEditPlanIsPopular] = useState(false);
+  const [savingPlan, setSavingPlan] = useState(false);
+
+  // Website CMS State
+  const [cmsData, setCmsData] = useState<any>(null);
+  const [loadingCms, setLoadingCms] = useState(false);
+  const [savingCms, setSavingCms] = useState(false);
+  const [cmsSubTab, setCmsSubTab] = useState<'HERO' | 'ROLES' | 'SECTIONS' | 'FAQS' | 'FOOTER' | 'LEGAL'>('HERO');
+  const [newFaqQuestion, setNewFaqQuestion] = useState('');
+  const [newFaqAnswer, setNewFaqAnswer] = useState('');
 
   // Search queries
   const [shopSearch, setShopSearch] = useState('');
@@ -166,7 +191,7 @@ export default function KhushiAdminPage() {
       setAdminProfilePhone(authData.user.phone || '');
 
       // 2. Fetch parallel endpoints
-      const [anRes, shRes, usRes, ordRes, plRes, payRes, feeRes, admRes] = await Promise.all([
+      const [anRes, shRes, usRes, ordRes, plRes, payRes, feeRes, admRes, cmsRes] = await Promise.all([
         adminFetch('/api/analytics').then((r) => (r.ok ? r.json() : null)),
         adminFetch('/api/shops').then((r) => (r.ok ? r.json() : null)),
         adminFetch('/api/users').then((r) => (r.ok ? r.json() : null)),
@@ -175,6 +200,7 @@ export default function KhushiAdminPage() {
         adminFetch('/api/payments').then((r) => (r.ok ? r.json() : null)),
         adminFetch('/api/admin/settings').then((r) => (r.ok ? r.json() : null)),
         adminFetch('/api/admin/list').then((r) => (r.ok ? r.json() : null)),
+        adminFetch('/api/cms?draft=true').then((r) => (r.ok ? r.json() : null)),
       ]);
 
       if (anRes) setAnalytics(anRes);
@@ -184,6 +210,7 @@ export default function KhushiAdminPage() {
       if (plRes?.plans) setPlans(plRes.plans);
       if (payRes?.payments) setPayments(payRes.payments);
       if (admRes?.admins) setAdminList(admRes.admins);
+      if (cmsRes?.cms) setCmsData(cmsRes.cms);
 
       if (feeRes?.settings) {
         setPlatformFeeEnabled(!!feeRes.settings.platformFeeEnabled);
@@ -271,8 +298,8 @@ export default function KhushiAdminPage() {
   };
 
   // Create New Super Admin
-  const handleCreateAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateAdmin = async (e?: React.FormEvent, forcePromote?: boolean) => {
+    if (e) e.preventDefault();
     const errors: Record<string, string> = {};
 
     if (!newAdminName.trim() || newAdminName.trim().length < 2) {
@@ -309,24 +336,31 @@ export default function KhushiAdminPage() {
           email: newAdminEmail.trim().toLowerCase(),
           phone: newAdminPhone ? cleanIndianPhone(newAdminPhone) : undefined,
           password: newAdminPassword.trim(),
+          promoteExisting: Boolean(forcePromote),
         }),
       });
 
       const d = await res.json();
       if (res.ok) {
         setShowCreateAdminModal(false);
+        setPromoteCandidate(null);
         setNewAdminCredentialsNotice({
-          name: newAdminName,
-          email: newAdminEmail,
+          name: d.user?.name || newAdminName,
+          email: d.user?.email || newAdminEmail,
           password: newAdminPassword,
+          promoted: d.promoted,
         });
         setNewAdminName('');
         setNewAdminEmail('');
         setNewAdminPhone('');
-        showToast('New Super Admin created successfully!');
+        showToast(d.message || 'Super Admin created successfully!');
         loadAllData();
       } else {
-        alert(d.error || 'Failed to create admin');
+        if (d.canPromote) {
+          setPromoteCandidate(d);
+        } else {
+          alert(d.error || 'Failed to create admin');
+        }
       }
     } catch (e) {
       alert('Failed to create admin');
@@ -537,36 +571,135 @@ export default function KhushiAdminPage() {
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const featuresArr = planFeatures
+        .split('\n')
+        .map((f) => f.trim())
+        .filter(Boolean);
+
       const res = await adminFetch('/api/plans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: planName.trim(),
           priceMonthly: Number(planPriceMonthly),
+          priceYearly: Number(planPriceYearly || planPriceMonthly * 10),
           maxPrinters: Number(planMaxPrinters),
+          commissionRate: Number(planCommissionRate || 3.0),
           maxOrdersPerMonth: Number(planMaxOrders),
           description: planDescription.trim(),
+          features: featuresArr,
+          isPopular: planIsPopular,
           isActive: true,
         }),
       });
 
       if (res.ok) {
-        showToast('New plan added!');
+        showToast(`New tier "${planName}" published!`);
         setShowAddPlanModal(false);
         setPlanName('');
+        setPlanPriceMonthly(0);
+        setPlanPriceYearly(0);
         setPlanDescription('');
+        setPlanFeatures('');
+        setPlanIsPopular(false);
         loadAllData();
       } else {
-        showToast('Failed to add plan');
+        const err = await res.json();
+        showToast(err.error || 'Failed to add plan');
       }
     } catch (e) {
       showToast('Failed to add plan');
     }
   };
 
+  // Open Edit Plan Modal with existing data
+  const handleOpenEditPlan = (p: any) => {
+    setEditingPlan(p);
+    setEditPlanName(p.name || '');
+    setEditPlanPriceMonthly(p.priceMonthly || 0);
+    setEditPlanPriceYearly(p.priceYearly !== undefined ? p.priceYearly : (p.priceMonthly ? p.priceMonthly * 10 : 0));
+    setEditPlanMaxPrinters(p.maxPrinters || 1);
+    setEditPlanMaxOrders(p.maxOrdersPerMonth || 1000);
+    setEditPlanCommissionRate(p.commissionRate !== undefined ? p.commissionRate : 3.0);
+    setEditPlanDescription(p.description || '');
+    setEditPlanFeatures(Array.isArray(p.features) ? p.features.join('\n') : (p.features || ''));
+    setEditPlanIsActive(p.isActive !== false);
+    setEditPlanIsPopular(!!p.isPopular);
+    setShowEditPlanModal(true);
+  };
+
+  // Update Plan (PATCH /api/plans)
+  const handleUpdatePlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPlan) return;
+    setSavingPlan(true);
+
+    try {
+      const planId = editingPlan._id || editingPlan.planId || editingPlan.id;
+      const featuresArr = editPlanFeatures
+        .split('\n')
+        .map((f) => f.trim())
+        .filter(Boolean);
+
+      const res = await adminFetch('/api/plans', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: planId,
+          name: editPlanName.trim(),
+          priceMonthly: Number(editPlanPriceMonthly),
+          priceYearly: Number(editPlanPriceYearly),
+          maxPrinters: Number(editPlanMaxPrinters),
+          commissionRate: Number(editPlanCommissionRate),
+          features: featuresArr,
+          isPopular: editPlanIsPopular,
+          isActive: editPlanIsActive,
+          description: editPlanDescription.trim(),
+          maxOrdersPerMonth: Number(editPlanMaxOrders),
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Plan "${editPlanName}" updated successfully!`);
+        setShowEditPlanModal(false);
+        setEditingPlan(null);
+        loadAllData();
+      } else {
+        showToast(data.error || 'Failed to update plan');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update plan');
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
+  // Toggle Plan Status Active / Inactive
+  const handleTogglePlanStatus = async (p: any) => {
+    const planId = p._id || p.planId || p.id;
+    const currentActive = p.isActive !== false;
+    try {
+      const res = await adminFetch('/api/plans', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: planId,
+          isActive: !currentActive,
+        }),
+      });
+      if (res.ok) {
+        showToast(`Plan marked as ${!currentActive ? 'Active' : 'Inactive'}`);
+        loadAllData();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   // Delete Plan
   const handleDeletePlan = async (planId: string, name: string) => {
-    if (!window.confirm(`Delete plan "${name}"?`)) return;
+    if (!window.confirm(`Permanently delete subscription plan "${name}"?`)) return;
     try {
       const res = await adminFetch(`/api/plans?id=${planId}`, { method: 'DELETE' });
       if (res.ok) {
@@ -578,6 +711,72 @@ export default function KhushiAdminPage() {
     } catch (e) {
       showToast('Failed to delete plan');
     }
+  };
+
+  // Save Website CMS Configuration (Draft or Live)
+  const handleSaveCms = async (action: 'DRAFT' | 'PUBLISH') => {
+    if (!cmsData) return;
+    setSavingCms(true);
+    try {
+      const res = await adminFetch('/api/cms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          cms: cmsData,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        showToast(
+          action === 'PUBLISH'
+            ? '🚀 Website CMS published LIVE to Prinly.in!'
+            : 'Draft saved successfully.'
+        );
+        if (data.cms) setCmsData(data.cms);
+      } else {
+        showToast(data.error || 'Failed to save CMS configuration');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to save CMS');
+    } finally {
+      setSavingCms(false);
+    }
+  };
+
+  // Add FAQ to CMS
+  const handleAddFaq = () => {
+    if (!newFaqQuestion.trim() || !newFaqAnswer.trim()) {
+      alert('Please enter both question and answer.');
+      return;
+    }
+
+    const currentFaqs = cmsData?.faqs || [];
+    const newFaq = {
+      id: `faq_${Date.now()}`,
+      question: newFaqQuestion.trim(),
+      answer: newFaqAnswer.trim(),
+    };
+
+    setCmsData({
+      ...cmsData,
+      faqs: [...currentFaqs, newFaq],
+    });
+
+    setNewFaqQuestion('');
+    setNewFaqAnswer('');
+    showToast('FAQ added to draft! Click "Save Draft" or "Publish Live" to apply.');
+  };
+
+  // Delete FAQ from CMS
+  const handleDeleteFaq = (faqId: string) => {
+    const currentFaqs = cmsData?.faqs || [];
+    setCmsData({
+      ...cmsData,
+      faqs: currentFaqs.filter((f: any) => f.id !== faqId),
+    });
+    showToast('FAQ removed from draft');
   };
 
   // Sign out
@@ -625,16 +824,23 @@ export default function KhushiAdminPage() {
         <div className="flex flex-col flex-1 overflow-y-auto">
           {/* Header */}
           <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs tracking-wider shrink-0">
-                CMS
-              </div>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Link href="/" className="shrink-0 group">
+                <img
+                  src="/logo.png"
+                  alt="Prinly.in"
+                  className="h-8 w-auto object-contain transition group-hover:scale-105"
+                />
+              </Link>
               <div className="min-w-0">
-                <div className="font-heading text-xs font-bold text-slate-900 truncate">
-                  PrintPorter Root
+                <div className="font-heading text-xs font-black text-slate-900 truncate">
+                  Prinly Root
                 </div>
-                <div className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded mt-0.5 inline-block">
-                  Super Admin Console
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[10px] text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded inline-flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Super Admin
+                  </span>
                 </div>
               </div>
             </div>
@@ -717,6 +923,28 @@ export default function KhushiAdminPage() {
                 activeTab === 'PLANS' ? 'bg-white text-blue-700' : 'bg-slate-100 text-slate-700'
               }`}>
                 {plans.length}
+              </span>
+            </button>
+
+            {/* Website CMS & Copy */}
+            <button
+              onClick={() => {
+                setActiveTab('CMS');
+                setIsMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition ${
+                activeTab === 'CMS'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-sm'
+                  : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100 font-semibold'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span>Website CMS & Copy</span>
+              </div>
+              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                activeTab === 'CMS' ? 'bg-white text-indigo-700' : 'bg-purple-100 text-purple-800'
+              }`}>
+                Zero-Code
               </span>
             </button>
 
@@ -1143,67 +1371,751 @@ export default function KhushiAdminPage() {
             </div>
           )}
 
-          {/* TAB 4: SUBSCRIPTION PLANS */}
+          {/* TAB 4: SUBSCRIPTION PLANS & FULL CRUD */}
           {activeTab === 'PLANS' && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                 <div>
-                  <h3 className="font-heading text-sm font-bold text-slate-900">
-                    Platform Subscription Plans for Cyber Cafés
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Manage tier pricing, machine limits, and monthly quota allocations.
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-heading text-base font-black text-slate-900">
+                      Platform Subscription Plans for Cyber Cafés
+                    </h3>
+                    <span className="rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold px-2 py-0.5">
+                      {plans.length} Tiers Configured
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Configure pricing tiers, fleet limits, monthly quotas, and network commissions for partner shops.
                   </p>
                 </div>
 
                 <button
                   onClick={() => setShowAddPlanModal(true)}
-                  className="rounded-xl bg-blue-600 hover:bg-blue-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition"
+                  className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-blue-600/20 transition active:scale-95 flex items-center gap-1.5 shrink-0"
                 >
-                  + Add New Plan
+                  <span>+ Add New Plan</span>
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {plans.map((p) => (
-                  <div key={p.planId || p._id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-between space-y-4">
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-heading text-sm font-bold text-slate-900">{p.name}</span>
-                        <span className="rounded bg-blue-50 border border-blue-200 text-blue-700 font-bold px-1.5 py-0.2 text-[10px]">
-                          {p.planId}
-                        </span>
+              {/* Plans Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {plans.map((p) => {
+                  const isPop = !!p.isPopular;
+                  const isActive = p.isActive !== false;
+                  return (
+                    <div
+                      key={p.planId || p._id}
+                      className={`relative rounded-2xl border bg-white p-6 shadow-sm flex flex-col justify-between space-y-4 transition hover:shadow-md ${
+                        isPop ? 'border-blue-400 ring-2 ring-blue-500/10' : 'border-slate-200'
+                      }`}
+                    >
+                      {/* Popular Ribbon */}
+                      {isPop && (
+                        <div className="absolute -top-3 right-4 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-[10px] font-black uppercase tracking-wider px-3 py-0.5 shadow-sm">
+                          ★ Most Popular
+                        </div>
+                      )}
+
+                      <div>
+                        {/* Top Header */}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="font-heading text-base font-black text-slate-900 truncate">
+                            {p.name}
+                          </span>
+                          <span className="rounded bg-slate-100 text-slate-600 font-mono text-[10px] font-bold px-2 py-0.5 border border-slate-200 shrink-0">
+                            {p.planId || p._id}
+                          </span>
+                        </div>
+
+                        {/* Price */}
+                        <div className="mb-3">
+                          <div className="font-heading text-3xl font-black text-slate-900 tracking-tight">
+                            ₹{p.priceMonthly}
+                            <span className="text-xs font-bold text-slate-500 ml-1">/ month</span>
+                          </div>
+                          {p.priceYearly ? (
+                            <span className="text-[11px] font-bold text-emerald-600">
+                              ₹{p.priceYearly} / year (save ~17%)
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-400">
+                              ₹{p.priceMonthly * 10} / year billing option
+                            </span>
+                          )}
+                        </div>
+
+                        {p.description && (
+                          <p className="text-xs text-slate-600 mb-4 line-clamp-2">
+                            {p.description}
+                          </p>
+                        )}
+
+                        {/* Metrics specs */}
+                        <div className="rounded-xl bg-slate-50 border border-slate-200 p-3.5 text-xs space-y-2 text-slate-700">
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-500 font-medium">Printer Fleet Limit:</span>
+                            <strong className="text-slate-900 font-black">{p.maxPrinters} Machine{p.maxPrinters > 1 ? 's' : ''}</strong>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-500 font-medium">Monthly Order Quota:</span>
+                            <strong className="text-slate-900 font-black">
+                              {p.maxOrdersPerMonth === 999999 || !p.maxOrdersPerMonth ? 'Unlimited' : `${p.maxOrdersPerMonth} orders`}
+                            </strong>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-500 font-medium">Platform Fee Rate:</span>
+                            <span className="font-bold text-blue-700 bg-blue-100/60 px-1.5 py-0.2 rounded text-[11px]">
+                              {p.commissionRate !== undefined ? p.commissionRate : 3.0}%
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center pt-1 border-t border-slate-200/80">
+                            <span className="text-slate-500 font-medium">Tier Status:</span>
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePlanStatus(p)}
+                              className={`rounded px-2 py-0.5 text-[10px] font-black border transition ${
+                                isActive
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                              }`}
+                            >
+                              {isActive ? '● Active' : '○ Inactive'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Feature checkmarks */}
+                        {Array.isArray(p.features) && p.features.length > 0 && (
+                          <div className="mt-3 space-y-1">
+                            {p.features.slice(0, 4).map((f: string, idx: number) => (
+                              <div key={idx} className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                                <span className="text-emerald-500 font-black">✓</span>
+                                <span className="truncate">{f}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
-                      <div className="font-heading text-2xl font-black text-slate-900 mb-2">
-                        ₹{p.priceMonthly} <span className="text-xs font-normal text-slate-500">/ month</span>
-                      </div>
-
-                      <p className="text-xs text-slate-600 mb-3">{p.description}</p>
-
-                      <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs space-y-1 text-slate-700">
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Max Printers:</span>
-                          <strong>{p.maxPrinters}</strong>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Max Orders/Mo:</span>
-                          <strong>{p.maxOrdersPerMonth === 999999 ? 'Unlimited' : p.maxOrdersPerMonth}</strong>
-                        </div>
+                      {/* Card Action Buttons: Edit and Delete */}
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditPlan(p)}
+                          className="flex-1 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 px-3 py-1.5 text-xs font-bold transition text-center shadow-xs"
+                        >
+                          ✎ Edit Plan
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePlan(p._id || p.planId, p.name)}
+                          className="rounded-xl px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-                    <div className="pt-2 border-t border-slate-100 flex justify-end">
-                      <button
-                        onClick={() => handleDeletePlan(p._id || p.planId, p.name)}
-                        className="text-xs font-bold text-rose-600 hover:bg-rose-50 px-2 py-1 rounded"
-                      >
-                        Delete Plan
-                      </button>
-                    </div>
+          {/* TAB 5: WEBSITE CMS & COPY MANAGER */}
+          {activeTab === 'CMS' && (
+            <div className="space-y-6">
+              {/* CMS Top Controls Banner */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-heading text-base font-black text-slate-900">
+                      Prinly Zero-Code Website CMS & Copy Builder
+                    </h3>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                        cmsData?.status === 'PUBLISHED'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      ● {cmsData?.status || 'PUBLISHED'}
+                    </span>
                   </div>
+                  <p className="text-xs text-slate-500">
+                    Live updates to Prinly.in landing page, hero text, section modules, FAQs, and legal policies.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    disabled={savingCms}
+                    onClick={() => handleSaveCms('DRAFT')}
+                    className="rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition disabled:opacity-50"
+                  >
+                    {savingCms ? 'Saving...' : 'Save Draft'}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={savingCms}
+                    onClick={() => handleSaveCms('PUBLISH')}
+                    className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 px-4 py-2 text-xs font-black text-white shadow-md shadow-blue-600/20 transition active:scale-95 disabled:opacity-50"
+                  >
+                    {savingCms ? 'Publishing...' : '🚀 Publish Live'}
+                  </button>
+
+                  <a
+                    href="/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100/70 px-3 py-2 text-xs font-bold text-blue-700 transition"
+                  >
+                    Preview Site ↗
+                  </a>
+                </div>
+              </div>
+
+              {/* Sub Navigation Tabs */}
+              <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-200 pb-3 text-xs font-bold">
+                {[
+                  { key: 'HERO', label: 'Hero & Headlines' },
+                  { key: 'ROLES', label: 'Perspective Cards' },
+                  { key: 'SECTIONS', label: 'Section Modules' },
+                  { key: 'FAQS', label: 'Frequently Asked Questions' },
+                  { key: 'FOOTER', label: 'Footer & Socials' },
+                  { key: 'LEGAL', label: 'Legal Policies (Markdown)' },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setCmsSubTab(tab.key as any)}
+                    className={`px-3.5 py-1.5 rounded-xl transition ${
+                      cmsSubTab === tab.key
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
                 ))}
               </div>
+
+              {/* SUBTAB 1: HERO & LIVE METRICS */}
+              {cmsSubTab === 'HERO' && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+                  <div className="border-b border-slate-100 pb-3">
+                    <h4 className="font-heading text-sm font-black text-slate-900">
+                      Hero Banner & Main Catchphrase
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      Topmost prominent visual section on the homepage
+                    </p>
+                  </div>
+
+                  <div className="space-y-3.5 text-xs">
+                    <div>
+                      <label className="text-slate-800 font-bold block mb-1">Top Announcement Badge</label>
+                      <input
+                        type="text"
+                        value={cmsData?.hero?.badge || ''}
+                        onChange={(e) =>
+                          setCmsData({
+                            ...cmsData,
+                            hero: { ...cmsData?.hero, badge: e.target.value },
+                          })
+                        }
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm font-medium"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-slate-800 font-bold block mb-1">Headline Part 1 (Navy)</label>
+                        <input
+                          type="text"
+                          value={cmsData?.hero?.headlinePart1 || ''}
+                          onChange={(e) =>
+                            setCmsData({
+                              ...cmsData,
+                              hero: { ...cmsData?.hero, headlinePart1: e.target.value },
+                            })
+                          }
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-800 font-bold block mb-1">Headline Part 2 (Gradient)</label>
+                        <input
+                          type="text"
+                          value={cmsData?.hero?.headlinePart2 || ''}
+                          onChange={(e) =>
+                            setCmsData({
+                              ...cmsData,
+                              hero: { ...cmsData?.hero, headlinePart2: e.target.value },
+                            })
+                          }
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-slate-800 font-bold block mb-1">Subheading Paragraph</label>
+                      <textarea
+                        rows={2}
+                        value={cmsData?.hero?.subheading || ''}
+                        onChange={(e) =>
+                          setCmsData({
+                            ...cmsData,
+                            hero: { ...cmsData?.hero, subheading: e.target.value },
+                          })
+                        }
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                      />
+                    </div>
+
+                    {/* CTAs */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="text-slate-800 font-bold block mb-1">Primary Button Text</label>
+                        <input
+                          type="text"
+                          value={cmsData?.hero?.primaryCtaText || ''}
+                          onChange={(e) =>
+                            setCmsData({
+                              ...cmsData,
+                              hero: { ...cmsData?.hero, primaryCtaText: e.target.value },
+                            })
+                          }
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-800 font-bold block mb-1">Secondary Button Text</label>
+                        <input
+                          type="text"
+                          value={cmsData?.hero?.secondaryCtaText || ''}
+                          onChange={(e) =>
+                            setCmsData({
+                              ...cmsData,
+                              hero: { ...cmsData?.hero, secondaryCtaText: e.target.value },
+                            })
+                          }
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Micro stats */}
+                    <div className="pt-2 border-t border-slate-100">
+                      <label className="text-slate-800 font-bold block mb-2">3 Live Trust Indicators</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                          <input
+                            type="text"
+                            placeholder="~2 Mins"
+                            value={cmsData?.hero?.stat1Number || ''}
+                            onChange={(e) =>
+                              setCmsData({
+                                ...cmsData,
+                                hero: { ...cmsData?.hero, stat1Number: e.target.value },
+                              })
+                            }
+                            className="w-full font-black text-sm bg-transparent outline-none text-slate-900"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Avg. Collection Time"
+                            value={cmsData?.hero?.stat1Label || ''}
+                            onChange={(e) =>
+                              setCmsData({
+                                ...cmsData,
+                                hero: { ...cmsData?.hero, stat1Label: e.target.value },
+                              })
+                            }
+                            className="w-full text-[11px] text-slate-500 bg-transparent outline-none mt-1"
+                          />
+                        </div>
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                          <input
+                            type="text"
+                            placeholder="₹0 Fee"
+                            value={cmsData?.hero?.stat2Number || ''}
+                            onChange={(e) =>
+                              setCmsData({
+                                ...cmsData,
+                                hero: { ...cmsData?.hero, stat2Number: e.target.value },
+                              })
+                            }
+                            className="w-full font-black text-sm bg-transparent outline-none text-slate-900"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Direct Shop UPI"
+                            value={cmsData?.hero?.stat2Label || ''}
+                            onChange={(e) =>
+                              setCmsData({
+                                ...cmsData,
+                                hero: { ...cmsData?.hero, stat2Label: e.target.value },
+                              })
+                            }
+                            className="w-full text-[11px] text-slate-500 bg-transparent outline-none mt-1"
+                          />
+                        </div>
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                          <input
+                            type="text"
+                            placeholder="100% Private"
+                            value={cmsData?.hero?.stat3Number || ''}
+                            onChange={(e) =>
+                              setCmsData({
+                                ...cmsData,
+                                hero: { ...cmsData?.hero, stat3Number: e.target.value },
+                              })
+                            }
+                            className="w-full font-black text-sm bg-transparent outline-none text-slate-900"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Auto-deleted Files"
+                            value={cmsData?.hero?.stat3Label || ''}
+                            onChange={(e) =>
+                              setCmsData({
+                                ...cmsData,
+                                hero: { ...cmsData?.hero, stat3Label: e.target.value },
+                              })
+                            }
+                            className="w-full text-[11px] text-slate-500 bg-transparent outline-none mt-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUBTAB 2: ROLES */}
+              {cmsSubTab === 'ROLES' && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3 text-xs">
+                    <div className="border-b border-slate-100 pb-2">
+                      <span className="font-heading text-sm font-black text-blue-700">Customer Perspective Card</span>
+                    </div>
+                    <div>
+                      <label className="text-slate-800 font-bold block mb-1">Tag Pill</label>
+                      <input
+                        type="text"
+                        value={cmsData?.roles?.userCard?.tag || ''}
+                        onChange={(e) =>
+                          setCmsData({
+                            ...cmsData,
+                            roles: {
+                              ...cmsData?.roles,
+                              userCard: { ...cmsData?.roles?.userCard, tag: e.target.value },
+                            },
+                          })
+                        }
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-800 font-bold block mb-1">Title</label>
+                      <input
+                        type="text"
+                        value={cmsData?.roles?.userCard?.title || ''}
+                        onChange={(e) =>
+                          setCmsData({
+                            ...cmsData,
+                            roles: {
+                              ...cmsData?.roles,
+                              userCard: { ...cmsData?.roles?.userCard, title: e.target.value },
+                            },
+                          })
+                        }
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-900 font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-800 font-bold block mb-1">Description</label>
+                      <textarea
+                        rows={3}
+                        value={cmsData?.roles?.userCard?.description || ''}
+                        onChange={(e) =>
+                          setCmsData({
+                            ...cmsData,
+                            roles: {
+                              ...cmsData?.roles,
+                              userCard: { ...cmsData?.roles?.userCard, description: e.target.value },
+                            },
+                          })
+                        }
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-900"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3 text-xs">
+                    <div className="border-b border-slate-100 pb-2">
+                      <span className="font-heading text-sm font-black text-cyan-700">Cyber Café Partner Card</span>
+                    </div>
+                    <div>
+                      <label className="text-slate-800 font-bold block mb-1">Tag Pill</label>
+                      <input
+                        type="text"
+                        value={cmsData?.roles?.printerCard?.tag || ''}
+                        onChange={(e) =>
+                          setCmsData({
+                            ...cmsData,
+                            roles: {
+                              ...cmsData?.roles,
+                              printerCard: { ...cmsData?.roles?.printerCard, tag: e.target.value },
+                            },
+                          })
+                        }
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-800 font-bold block mb-1">Title</label>
+                      <input
+                        type="text"
+                        value={cmsData?.roles?.printerCard?.title || ''}
+                        onChange={(e) =>
+                          setCmsData({
+                            ...cmsData,
+                            roles: {
+                              ...cmsData?.roles,
+                              printerCard: { ...cmsData?.roles?.printerCard, title: e.target.value },
+                            },
+                          })
+                        }
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-900 font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-800 font-bold block mb-1">Description</label>
+                      <textarea
+                        rows={3}
+                        value={cmsData?.roles?.printerCard?.description || ''}
+                        onChange={(e) =>
+                          setCmsData({
+                            ...cmsData,
+                            roles: {
+                              ...cmsData?.roles,
+                              printerCard: { ...cmsData?.roles?.printerCard, description: e.target.value },
+                            },
+                          })
+                        }
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-900"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUBTAB 3: SECTION MODULES */}
+              {cmsSubTab === 'SECTIONS' && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+                  <div className="border-b border-slate-100 pb-3">
+                    <h4 className="font-heading text-sm font-black text-slate-900">
+                      Modular Section Visibility Manager
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      Toggle ON or OFF any section on the public homepage with zero code deployment
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    {(cmsData?.sections || []).map((sec: any, idx: number) => (
+                      <div
+                        key={sec.id || idx}
+                        className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-xs font-bold text-slate-400">#{sec.order || idx + 1}</span>
+                          <span className="text-xs font-bold text-slate-900">{sec.title}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">({sec.id})</span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newSections = [...(cmsData?.sections || [])];
+                            newSections[idx] = { ...sec, visible: !sec.visible };
+                            setCmsData({ ...cmsData, sections: newSections });
+                          }}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                            sec.visible !== false
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {sec.visible !== false ? 'Visible (ON)' : 'Hidden (OFF)'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* SUBTAB 4: FAQS CRUD */}
+              {cmsSubTab === 'FAQS' && (
+                <div className="space-y-4">
+                  {/* Add FAQ Box */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3 text-xs">
+                    <h4 className="font-heading text-sm font-black text-slate-900">+ Add New FAQ Question</h4>
+                    <div>
+                      <label className="font-bold text-slate-800 block mb-1">Question</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Can I print spiral bound documents?"
+                        value={newFaqQuestion}
+                        onChange={(e) => setNewFaqQuestion(e.target.value)}
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-800 block mb-1">Answer</label>
+                      <textarea
+                        rows={2}
+                        placeholder="e.g. Yes, select spiral binding in print finishing options..."
+                        value={newFaqAnswer}
+                        onChange={(e) => setNewFaqAnswer(e.target.value)}
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddFaq}
+                      className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 text-xs"
+                    >
+                      Add Question to Draft
+                    </button>
+                  </div>
+
+                  {/* Current FAQs */}
+                  <div className="space-y-3">
+                    {(cmsData?.faqs || []).map((faq: any, index: number) => (
+                      <div key={faq.id || index} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-2 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900 text-sm">{faq.question}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteFaq(faq.id)}
+                            className="text-rose-600 hover:text-rose-800 font-bold"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                        <p className="text-slate-600 leading-relaxed">{faq.answer}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* SUBTAB 5: FOOTER */}
+              {cmsSubTab === 'FOOTER' && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-800 block mb-1">Support Email</label>
+                      <input
+                        type="email"
+                        value={cmsData?.footer?.contactEmail || ''}
+                        onChange={(e) =>
+                          setCmsData({
+                            ...cmsData,
+                            footer: { ...cmsData?.footer, contactEmail: e.target.value },
+                          })
+                        }
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-800 block mb-1">Support Phone</label>
+                      <input
+                        type="text"
+                        value={cmsData?.footer?.contactPhone || ''}
+                        onChange={(e) =>
+                          setCmsData({
+                            ...cmsData,
+                            footer: { ...cmsData?.footer, contactPhone: e.target.value },
+                          })
+                        }
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-800 block mb-1">Office Address</label>
+                    <input
+                      type="text"
+                      value={cmsData?.footer?.contactAddress || ''}
+                      onChange={(e) =>
+                        setCmsData({
+                          ...cmsData,
+                          footer: { ...cmsData?.footer, contactAddress: e.target.value },
+                        })
+                      }
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* SUBTAB 6: LEGAL POLICIES */}
+              {cmsSubTab === 'LEGAL' && (
+                <div className="space-y-5">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-2">
+                    <label className="font-bold text-slate-900 text-xs block">Terms & Conditions (Markdown)</label>
+                    <textarea
+                      rows={6}
+                      value={cmsData?.legal?.termsAndConditions || ''}
+                      onChange={(e) =>
+                        setCmsData({
+                          ...cmsData,
+                          legal: { ...cmsData?.legal, termsAndConditions: e.target.value },
+                        })
+                      }
+                      className="w-full rounded-xl border border-slate-300 p-3 font-mono text-xs text-slate-800 leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-2">
+                    <label className="font-bold text-slate-900 text-xs block">Privacy Policy (Markdown)</label>
+                    <textarea
+                      rows={6}
+                      value={cmsData?.legal?.privacyPolicy || ''}
+                      onChange={(e) =>
+                        setCmsData({
+                          ...cmsData,
+                          legal: { ...cmsData?.legal, privacyPolicy: e.target.value },
+                        })
+                      }
+                      className="w-full rounded-xl border border-slate-300 p-3 font-mono text-xs text-slate-800 leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-2">
+                    <label className="font-bold text-slate-900 text-xs block">Refund Policy (Markdown)</label>
+                    <textarea
+                      rows={6}
+                      value={cmsData?.legal?.refundPolicy || ''}
+                      onChange={(e) =>
+                        setCmsData({
+                          ...cmsData,
+                          legal: { ...cmsData?.legal, refundPolicy: e.target.value },
+                        })
+                      }
+                      className="w-full rounded-xl border border-slate-300 p-3 font-mono text-xs text-slate-800 leading-relaxed"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1525,10 +2437,25 @@ export default function KhushiAdminPage() {
                 </div>
 
                 {newAdminCredentialsNotice && (
-                  <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs space-y-1">
-                    <span className="font-bold text-emerald-900">New Admin Created:</span>
-                    <div className="font-mono text-slate-800">Email: {newAdminCredentialsNotice.email}</div>
-                    <div className="font-mono text-slate-800">Password: {newAdminCredentialsNotice.password}</div>
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-300 p-3.5 text-xs space-y-1.5 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-emerald-900 flex items-center gap-1.5">
+                        <span>✓</span>
+                        <span>{newAdminCredentialsNotice.promoted ? 'Account Upgraded to Super Admin!' : 'New Super Admin Created!'}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setNewAdminCredentialsNotice(null)}
+                        className="text-[10px] text-emerald-700 hover:text-emerald-950 font-bold underline"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                    <div className="font-mono text-slate-800 text-[11px] bg-white/70 p-2 rounded-lg border border-emerald-200 space-y-1">
+                      <div>Name: <strong>{newAdminCredentialsNotice.name}</strong></div>
+                      <div>Login ID: <strong>{newAdminCredentialsNotice.email}</strong></div>
+                      <div>Password: <strong>{newAdminCredentialsNotice.password}</strong></div>
+                    </div>
                   </div>
                 )}
 
@@ -1920,6 +2847,44 @@ export default function KhushiAdminPage() {
             </div>
 
             <form onSubmit={handleCreateAdmin} className="space-y-3.5 text-xs">
+              {promoteCandidate && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 space-y-2.5 text-xs animate-in fade-in">
+                  <div className="flex items-start gap-2 text-amber-900">
+                    <span className="text-base leading-none">⚠️</span>
+                    <div>
+                      <strong className="block text-amber-950 font-bold">Existing Account Found</strong>
+                      <p className="text-amber-800 mt-1">
+                        <strong>{promoteCandidate.existingEmail}</strong> is currently registered as a{' '}
+                        <span className="font-extrabold underline">
+                          {promoteCandidate.existingRole === 'SHOP_OWNER' ? 'Printer Hub Partner (Shop Owner)' : 'Customer'}
+                        </span>{' '}
+                        ({promoteCandidate.existingName}).
+                      </p>
+                      <p className="text-amber-900 font-semibold text-[11px] mt-1">
+                        Would you like to upgrade this account to <strong>Super Admin</strong> with full console access?
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleCreateAdmin(undefined, true)}
+                      disabled={creatingAdmin}
+                      className="rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 text-white font-bold px-3 py-1.5 text-xs shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <span>⚡ Upgrade Account to Super Admin</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPromoteCandidate(null)}
+                      className="rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold px-2.5 py-1.5 text-xs"
+                    >
+                      Use Other Email
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="text-slate-800 font-bold mb-1 block">Full Name *</label>
                 <input
@@ -2068,9 +3033,22 @@ export default function KhushiAdminPage() {
                     required
                     value={planPriceMonthly}
                     onChange={(e) => setPlanPriceMonthly(parseFloat(e.target.value) || 0)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-800 font-bold mb-1 block">Price ₹/year</label>
+                  <input
+                    type="number"
+                    value={planPriceYearly}
+                    onChange={(e) => setPlanPriceYearly(parseFloat(e.target.value) || 0)}
+                    placeholder="e.g. 4990"
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="text-slate-800 font-bold mb-1 block">Max Printers *</label>
                   <input
@@ -2078,17 +3056,37 @@ export default function KhushiAdminPage() {
                     required
                     value={planMaxPrinters}
                     onChange={(e) => setPlanMaxPrinters(parseInt(e.target.value, 10) || 1)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-800 font-bold mb-1 block">Monthly Quota</label>
+                  <input
+                    type="number"
+                    value={planMaxOrders}
+                    onChange={(e) => setPlanMaxOrders(parseInt(e.target.value, 10) || 1000)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-800 font-bold mb-1 block">Fee Rate (%)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={planCommissionRate}
+                    onChange={(e) => setPlanCommissionRate(parseFloat(e.target.value) || 3.0)}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-slate-800 font-bold mb-1 block">Max Orders/Month</label>
-                <input
-                  type="number"
-                  value={planMaxOrders}
-                  onChange={(e) => setPlanMaxOrders(parseInt(e.target.value, 10) || 1000)}
+                <label className="text-slate-800 font-bold mb-1 block">Features (One per line)</label>
+                <textarea
+                  rows={3}
+                  value={planFeatures}
+                  onChange={(e) => setPlanFeatures(e.target.value)}
+                  placeholder={"Direct Counter Standee QR\nPriority Cloud Spooling\n0% Platform Fee"}
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
                 />
               </div>
@@ -2104,6 +3102,19 @@ export default function KhushiAdminPage() {
                 />
               </div>
 
+              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                <input
+                  type="checkbox"
+                  id="planIsPopular"
+                  checked={planIsPopular}
+                  onChange={(e) => setPlanIsPopular(e.target.checked)}
+                  className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                />
+                <label htmlFor="planIsPopular" className="text-xs font-bold text-slate-800 cursor-pointer">
+                  Mark as "Most Popular" Tier
+                </label>
+              </div>
+
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -2114,9 +3125,166 @@ export default function KhushiAdminPage() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2 font-bold text-white shadow-sm"
+                  className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 px-5 py-2 font-bold text-white shadow-sm transition active:scale-95"
                 >
-                  Publish Plan
+                  Create & Publish Tier
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Edit Plan (Full CRUD Operation) */}
+      {showEditPlanModal && editingPlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <h3 className="font-heading text-sm font-black text-slate-900">
+                  Edit Subscription Plan
+                </h3>
+                <span className="rounded bg-slate-100 font-mono text-[10px] font-bold text-slate-600 px-2 py-0.5 border border-slate-200">
+                  {editingPlan._id || editingPlan.planId}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setShowEditPlanModal(false);
+                  setEditingPlan(null);
+                }}
+                className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200 transition"
+              >
+                Close
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdatePlan} className="space-y-3.5 text-xs">
+              <div>
+                <label className="text-slate-800 font-bold mb-1 block">Plan Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editPlanName}
+                  onChange={(e) => setEditPlanName(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 font-bold outline-none focus:border-blue-600 shadow-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-800 font-bold mb-1 block">Monthly Price (₹/mo) *</label>
+                  <input
+                    type="number"
+                    required
+                    value={editPlanPriceMonthly}
+                    onChange={(e) => setEditPlanPriceMonthly(parseFloat(e.target.value) || 0)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 font-black text-sm outline-none focus:border-blue-600 shadow-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-800 font-bold mb-1 block">Yearly Price (₹/yr)</label>
+                  <input
+                    type="number"
+                    value={editPlanPriceYearly}
+                    onChange={(e) => setEditPlanPriceYearly(parseFloat(e.target.value) || 0)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-slate-800 font-bold mb-1 block">Max Printers *</label>
+                  <input
+                    type="number"
+                    required
+                    value={editPlanMaxPrinters}
+                    onChange={(e) => setEditPlanMaxPrinters(parseInt(e.target.value, 10) || 1)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-800 font-bold mb-1 block">Monthly Quota</label>
+                  <input
+                    type="number"
+                    value={editPlanMaxOrders}
+                    onChange={(e) => setEditPlanMaxOrders(parseInt(e.target.value, 10) || 1000)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-800 font-bold mb-1 block">Fee Rate (%)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={editPlanCommissionRate}
+                    onChange={(e) => setEditPlanCommissionRate(parseFloat(e.target.value) || 3.0)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-slate-800 font-bold mb-1 block">Features (One per line)</label>
+                <textarea
+                  rows={3}
+                  value={editPlanFeatures}
+                  onChange={(e) => setEditPlanFeatures(e.target.value)}
+                  placeholder={"Direct Counter Standee QR\nPriority Cloud Spooling\n0% Platform Fee"}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-800 font-bold mb-1 block">Description</label>
+                <textarea
+                  rows={2}
+                  value={editPlanDescription}
+                  onChange={(e) => setEditPlanDescription(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-600 shadow-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={editPlanIsActive}
+                    onChange={(e) => setEditPlanIsActive(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                  />
+                  <span>Active & Purchasable</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={editPlanIsPopular}
+                    onChange={(e) => setEditPlanIsPopular(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                  />
+                  <span>★ Most Popular Badge</span>
+                </label>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditPlanModal(false);
+                    setEditingPlan(null);
+                  }}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-bold text-slate-700 hover:bg-slate-50 shadow-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPlan}
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2 font-bold text-white shadow-sm transition active:scale-95 disabled:opacity-50"
+                >
+                  {savingPlan ? 'Saving Changes...' : 'Save Plan Changes'}
                 </button>
               </div>
             </form>

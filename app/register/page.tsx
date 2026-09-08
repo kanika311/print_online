@@ -4,12 +4,16 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-export default function RegisterPage() {
+export default function UserRegisterPage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [location, setLocation] = useState('Sector 18, Noida');
+  const [preferredArea, setPreferredArea] = useState('Metro Market Complex');
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -24,30 +28,24 @@ export default function RegisterPage() {
     const trimmedName = name.trim();
     if (!trimmedName || trimmedName.length < 2) {
       errors.name = 'Full name must be at least 2 characters';
-    } else if (trimmedName.length > 50) {
-      errors.name = 'Full name cannot exceed 50 characters';
-    } else if (!/^[a-zA-Z\s.]+$/.test(trimmedName)) {
-      errors.name = 'Name can only contain letters and spaces';
     }
 
     const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      errors.email = 'Email address is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       errors.email = 'Please enter a valid email address';
     }
 
     const cleanedPhone = cleanIndianPhone(phone);
-    if (!cleanedPhone) {
-      errors.phone = 'Mobile number is required';
-    } else if (cleanedPhone.length !== 10) {
-      errors.phone = 'Mobile number must be exactly 10 digits';
-    } else if (!/^[6-9]/.test(cleanedPhone)) {
-      errors.phone = 'Indian mobile number must start with 6, 7, 8, or 9';
+    if (!cleanedPhone || cleanedPhone.length !== 10) {
+      errors.phone = 'Please enter a valid 10-digit mobile number';
     }
 
     if (!password || password.length < 6) {
       errors.password = 'Password must be at least 6 characters';
+    }
+
+    if (password !== confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match';
     }
 
     return errors;
@@ -75,164 +73,216 @@ export default function RegisterPage() {
           email: email.trim().toLowerCase(),
           phone: cleanIndianPhone(phone),
           password: password,
+          address: `${location}, ${preferredArea}`,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to register account');
+        throw new Error(data.error || 'Registration failed');
       }
 
-      router.push('/');
+      if (data.token) {
+        localStorage.setItem('printporter_token', data.token);
+        localStorage.setItem('printporter_user', JSON.stringify(data.user));
+        document.cookie = `printporter_token=${data.token}; path=/; max-age=604800; SameSite=Lax; ${
+          window.location.protocol === 'https:' ? 'Secure;' : ''
+        }`;
+      }
+
+      // Specifications require: redirect to /user/dashboard
+      window.location.href = '/user/dashboard';
     } catch (err: any) {
-      setError(err.message || 'Registration failed');
+      setError(err.message || 'Registration error');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDemoFill = () => {
+    const rnd = Math.floor(100 + Math.random() * 900);
+    setName(`Pooja Sharma ${rnd}`);
+    setEmail(`pooja${rnd}@student.edu`);
+    setPhone(`98765${rnd}12`);
+    setPassword('User@123');
+    setConfirmPassword('User@123');
+    setLocation('Sector 18, Noida');
+    setPreferredArea('Near Gate 2 Metro');
+  };
+
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-slate-50 px-4 py-12 text-slate-900">
       <div className="w-full max-w-md">
+        {/* Brand Header */}
         <div className="text-center mb-6">
-          <Link href="/" className="inline-flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-sm tracking-wider shadow-md">
-              PP
-            </div>
-            <span className="font-heading text-2xl font-black text-slate-900 tracking-tight">
-              Print<span className="text-blue-600">Porter</span>
-            </span>
+          <Link href="/" className="inline-flex flex-col items-center gap-2 group">
+            <img
+              src="/logo.png"
+              alt="Prinly.in - Print • Scan • Online"
+              className="h-12 w-auto object-contain drop-shadow transition group-hover:scale-105"
+            />
           </Link>
-          <h2 className="mt-3 font-heading text-lg font-bold text-slate-900">
+          <h2 className="mt-3 font-heading text-xl font-bold text-slate-900">
             Create Customer Account
           </h2>
           <p className="text-xs text-slate-500">
-            Sign up for live order tracking and instant kiosk checkout
+            Upload documents and print instantly at nearby partner hubs
           </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 md:p-7 shadow-md">
+        {/* 1-Click Fast Fill */}
+        <div className="mb-4 flex items-center justify-between p-3 rounded-2xl bg-blue-50/70 border border-blue-200">
+          <span className="text-xs font-bold text-blue-800">Testing evaluation?</span>
+          <button
+            type="button"
+            onClick={handleDemoFill}
+            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-lg shadow-sm transition active:scale-95"
+          >
+            Auto-fill Test User
+          </button>
+        </div>
+
+        {/* Registration Form Card */}
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
           {error && (
-            <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 font-semibold">
-              Notice: {error}
+            <div className="mb-4 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 font-semibold">
+              {error}
             </div>
           )}
 
           <form onSubmit={handleRegister} className="space-y-3.5">
             <div>
-              <label className="text-xs font-semibold text-slate-700 mb-1 block">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 Full Name *
               </label>
               <input
                 type="text"
                 required
-                maxLength={50}
                 value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  if (formErrors.name) setFormErrors((prev) => ({ ...prev, name: '' }));
-                }}
-                placeholder="e.g. Priya Singh"
-                className={`w-full rounded-xl border bg-white py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none shadow-sm transition ${
-                  formErrors.name ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
-                }`}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Rahul Verma"
+                className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-blue-600 font-medium transition"
               />
               {formErrors.name && (
-                <p className="text-[11px] text-rose-600 font-semibold mt-1">{formErrors.name}</p>
+                <p className="text-[10px] text-rose-600 font-bold mt-0.5">{formErrors.name}</p>
               )}
             </div>
 
-            <div>
-              <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                Email Address *
-              </label>
-              <input
-                type="email"
-                required
-                maxLength={80}
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (formErrors.email) setFormErrors((prev) => ({ ...prev, email: '' }));
-                }}
-                placeholder="name@example.com"
-                className={`w-full rounded-xl border bg-white py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none shadow-sm transition ${
-                  formErrors.email ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
-                }`}
-              />
-              {formErrors.email && (
-                <p className="text-[11px] text-rose-600 font-semibold mt-1">{formErrors.email}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                Phone Number (for SMS & Queue Alerts) *
-              </label>
-              <div className="relative flex items-center">
-                <span className="absolute left-3 text-xs font-bold text-slate-500 select-none">
-                  +91
-                </span>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Mobile Number *
+                </label>
                 <input
                   type="tel"
                   required
-                  maxLength={10}
                   value={phone}
-                  onChange={(e) => {
-                    const clean = cleanIndianPhone(e.target.value);
-                    setPhone(clean);
-                    if (formErrors.phone) setFormErrors((prev) => ({ ...prev, phone: '' }));
-                  }}
+                  onChange={(e) => setPhone(e.target.value)}
                   placeholder="9876543210"
-                  className={`w-full rounded-xl border bg-white pl-11 pr-3 py-2 text-xs font-mono text-slate-900 placeholder-slate-400 outline-none shadow-sm transition ${
-                    formErrors.phone ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
-                  }`}
+                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-blue-600 font-medium transition"
                 />
+                {formErrors.phone && (
+                  <p className="text-[10px] text-rose-600 font-bold mt-0.5">{formErrors.phone}</p>
+                )}
               </div>
-              {formErrors.phone ? (
-                <p className="text-[11px] text-rose-600 font-semibold mt-1">{formErrors.phone}</p>
-              ) : (
-                <p className="text-[10px] text-slate-400 mt-1">10-digit mobile number (starts with 6-9)</p>
-              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@mail.com"
+                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-blue-600 font-medium transition"
+                />
+                {formErrors.email && (
+                  <p className="text-[10px] text-rose-600 font-bold mt-0.5">{formErrors.email}</p>
+                )}
+              </div>
             </div>
 
-            <div>
-              <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                Password *
-              </label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (formErrors.password) setFormErrors((prev) => ({ ...prev, password: '' }));
-                }}
-                placeholder="At least 6 characters"
-                className={`w-full rounded-xl border bg-white py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none shadow-sm transition ${
-                  formErrors.password ? 'border-rose-500 bg-rose-50/20 focus:border-rose-600' : 'border-slate-300 focus:border-blue-600'
-                }`}
-              />
-              {formErrors.password ? (
-                <p className="text-[11px] text-rose-600 font-semibold mt-1">{formErrors.password}</p>
-              ) : (
-                <p className="text-[10px] text-slate-400 mt-1">Must be at least 6 characters</p>
-              )}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Password *
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Min 6 chars"
+                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-blue-600 font-medium transition"
+                />
+                {formErrors.password && (
+                  <p className="text-[10px] text-rose-600 font-bold mt-0.5">{formErrors.password}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Confirm Password *
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repeat password"
+                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-blue-600 font-medium transition"
+                />
+                {formErrors.confirmPassword && (
+                  <p className="text-[10px] text-rose-600 font-bold mt-0.5">{formErrors.confirmPassword}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Optional Location & Preferred Printing Area */}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                  Location (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Sector / City"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                  Preferred Printing Area
+                </label>
+                <input
+                  type="text"
+                  value={preferredArea}
+                  onChange={(e) => setPreferredArea(e.target.value)}
+                  placeholder="e.g. Near Metro"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 outline-none"
+                />
+              </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="mt-5 w-full rounded-xl bg-blue-600 hover:bg-blue-700 py-2.5 text-xs font-bold text-white shadow-sm transition active:scale-95 disabled:opacity-50"
+              className="w-full mt-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 py-3 text-xs font-black text-white shadow-md shadow-blue-600/20 hover:opacity-95 transition active:scale-95 disabled:opacity-50"
             >
-              {loading ? 'Creating Account...' : 'Create Account'}
+              {loading ? 'Creating Account...' : 'Continue to User Dashboard →'}
             </button>
           </form>
 
-          <div className="mt-5 text-center text-xs text-slate-500">
-            Already have an account?{' '}
-            <Link href="/login" className="font-bold text-blue-600 hover:underline">
-              Sign In
+          {/* Partner hub link */}
+          <div className="mt-5 pt-4 border-t border-slate-100 text-center text-xs text-slate-500">
+            Own a printing shop or cyber cafe?{' '}
+            <Link href="/printer/register" className="font-bold text-cyan-600 hover:underline">
+              Register as a Prinly Hub
             </Link>
           </div>
         </div>

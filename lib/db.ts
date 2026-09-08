@@ -55,6 +55,7 @@ if (!global.memoryStore) {
       platformFeeAmount: 0,
       platformFeeLabel: 'Platform Convenience Fee',
     },
+    cms: null,
   };
 }
 
@@ -66,6 +67,212 @@ if (!global.memoryStore.settings) {
     platformFeeLabel: 'Platform Convenience Fee',
   };
 }
+
+export const defaultCmsConfig = {
+  version: '1.0.0',
+  status: 'PUBLISHED',
+  publishedAt: new Date(),
+  hero: {
+    badge: 'Smart Cyber Cafe Print Network • Zero Waiting Time',
+    headlinePart1: 'Your Documents.',
+    headlinePart2: 'Printed Nearby.',
+    subheading:
+      'Upload online, choose a nearby Prinly Hub, pay digitally and collect your prints without waiting in line.',
+    primaryCtaText: 'Find a Printing Hub',
+    primaryCtaLink: '#nearby-shops',
+    secondaryCtaText: 'Become a Prinly Hub',
+    secondaryCtaLink: '/printer/register',
+    stat1Number: '~2 Mins',
+    stat1Label: 'Avg. Collection Time',
+    stat2Number: '₹0 Fee',
+    stat2Label: 'Direct Shop UPI',
+    stat3Number: '100% Private',
+    stat3Label: 'Auto-deleted Files',
+  },
+  roles: {
+    userCard: {
+      tag: 'FOR CUSTOMERS',
+      title: 'Print documents from anywhere',
+      description:
+        'Upload your documents, find a nearby Prinly printing hub, customize your print settings, pay digitally, and collect your prints.',
+      primaryCta: 'Continue as User',
+      secondaryCta: 'Login / Register',
+    },
+    printerCard: {
+      tag: 'FOR PRINTER & CYBER CAFE OWNERS',
+      title: 'Turn your printer into a Prinly Hub',
+      description:
+        'Register your cyber cafe or printing shop, receive online print orders, manage your printer queue, and grow your local printing business.',
+      primaryCta: 'Register Your Printer',
+      secondaryCta: 'Printer Owner Login',
+    },
+  },
+  sections: [
+    { id: 'perspectives', title: 'Role Perspectives', visible: true, order: 1 },
+    { id: 'hero', title: 'Hero Banner', visible: true, order: 2 },
+    { id: 'network', title: 'Interactive 3D Network', visible: true, order: 3 },
+    { id: 'howItWorks', title: 'How Prinly Works', visible: true, order: 4 },
+    { id: 'nearbyHubs', title: 'Nearby Printing Hubs', visible: true, order: 5 },
+    { id: 'features', title: 'Platform Benefits', visible: true, order: 6 },
+    { id: 'printerCta', title: 'Printer Hub Partner CTA', visible: true, order: 7 },
+    { id: 'faq', title: 'Frequently Asked Questions', visible: true, order: 8 },
+    { id: 'footer', title: 'Footer Section', visible: true, order: 9 },
+  ],
+  features: [
+    {
+      id: 'feat_1',
+      title: 'Zero Queue Cloud Spooling',
+      description:
+        'Files are pre-processed and sent directly to the shop’s active printer tray. No standing in counter lines.',
+      badge: 'High Speed',
+    },
+    {
+      id: 'feat_2',
+      title: 'Direct Shopkeeper UPI / Cash',
+      description:
+        'Pay directly to the local shopkeeper using GPay, PhonePe, Paytm, or choose cash on collection.',
+      badge: 'Transparent',
+    },
+    {
+      id: 'feat_3',
+      title: 'Total Document Privacy',
+      description:
+        '256-bit SSL encrypted transit. Uploaded files are automatically erased right after printing.',
+      badge: 'Confidential',
+    },
+    {
+      id: 'feat_4',
+      title: 'Full Format & Duplex Freedom',
+      description:
+        'Support for PDF, Word docs, images, colored brochures, spiral binding, and staple options.',
+      badge: 'Flexible',
+    },
+  ],
+  howItWorksCustomer: [
+    {
+      step: 1,
+      title: 'Select a Nearby Hub',
+      description: 'Pick any local cyber cafe on the GPS radar or scan their counter QR standee.',
+      badge: 'Step 1',
+    },
+    {
+      step: 2,
+      title: 'Upload & Configure',
+      description: 'Upload your document and choose B&W/Color, Duplex, Copies, and paper size.',
+      badge: 'Step 2',
+    },
+    {
+      step: 3,
+      title: 'Pay & Collect Instantly',
+      description: 'Pay via Shop UPI or counter cash and grab your warm prints hot off the tray.',
+      badge: 'Step 3',
+    },
+  ],
+  howItWorksHub: [
+    {
+      step: 1,
+      title: 'Register Your Shop',
+      description: 'Set up your hub profile, printer models, paper types, and custom per-page pricing.',
+      badge: 'Step 1',
+    },
+    {
+      step: 2,
+      title: 'Receive Real-time Orders',
+      description: 'Incoming customer orders arrive with audible sound alerts and live spool notifications.',
+      badge: 'Step 2',
+    },
+    {
+      step: 3,
+      title: 'Confirm Payment & Grow',
+      description: 'Confirm counter cash or UPI settlements, hand over prints, and build customer loyalty.',
+      badge: 'Step 3',
+    },
+  ],
+  faqs: [
+    {
+      id: 'faq_1',
+      question: 'How do I print a document using Prinly?',
+      answer:
+        'Simply select a nearby Prinly hub or scan their counter QR code, upload your file (PDF, DOCX, or Image), customize your print settings (Color/B&W, Duplex), and pay digitally or in cash upon arrival.',
+    },
+    {
+      id: 'faq_2',
+      question: 'Are my uploaded documents secure and private?',
+      answer:
+        'Yes. Prinly uses 256-bit TLS encryption in transit. Files are only accessible to the designated printer for output and are automatically purged from the spooler after printing.',
+    },
+    {
+      id: 'faq_3',
+      question: 'How can cyber cafe or printer owners join Prinly?',
+      answer:
+        'Click on "Join as a Printing Hub" or "Register Your Printer". Complete our 5-minute onboarding with your shop details, printer fleet, and pricing. You will immediately start receiving online print orders from nearby students and professionals.',
+    },
+    {
+      id: 'faq_4',
+      question: 'What payment methods are supported?',
+      answer:
+        'Prinly supports direct UPI payments (Google Pay, PhonePe, Paytm), credit/debit cards, net banking, and cash at counter upon pickup.',
+    },
+    {
+      id: 'faq_5',
+      question: 'What is the Counter QR Standee?',
+      answer:
+        'Every Prinly partner shop receives a unique QR standee. Customers can simply walk in, scan the QR with any camera, upload their documents on the spot, and have them print out automatically without using WhatsApp or USB drives.',
+    },
+  ],
+  testimonials: [
+    {
+      id: 't_1',
+      name: 'Aman Sharma',
+      role: 'Engineering Student, Delhi University',
+      comment:
+        'I used to waste 25 minutes waiting in queue outside the college cyber cafe before exams. With Prinly, I upload my assignment from hostel, walk in, and collect it instantly!',
+      rating: 5,
+    },
+    {
+      id: 't_2',
+      name: 'Rajesh Gupta',
+      role: 'Owner, Apex Digital Print & Cyber Cafe',
+      comment:
+        'Prinly increased my daily print volume by 40%. Students order online before reaching the shop, my printer keeps working smoothly without crowd bottlenecks, and payments come directly to my UPI.',
+      rating: 5,
+    },
+    {
+      id: 't_3',
+      name: 'Pooja Verma',
+      role: 'Chartered Accountant',
+      comment:
+        'Confidential tax audits require high privacy. Sending files on WhatsApp to strangers was always risky. Prinly gives clean, private printing without sharing my phone number.',
+      rating: 5,
+    },
+  ],
+  footer: {
+    logoText: 'Prinly.in',
+    tagline: 'Smart Cyber Cafe Print Network',
+    description:
+      'Prinly bridges remote digital documents with local cyber cafes and smart printers. Upload anywhere, print nearby, and collect instantly.',
+    contactEmail: 'support@prinly.in',
+    contactPhone: '+91 98111 22334',
+    contactAddress: 'Prinly Technologies Inc., Sector 18, Commercial Hub, NCR, India',
+    socialTwitter: 'https://twitter.com/prinly_in',
+    socialInstagram: 'https://instagram.com/prinly.in',
+    socialLinkedin: 'https://linkedin.com/company/prinly',
+    quickLinks: [
+      { label: 'Home', url: '/' },
+      { label: 'Find Printing Hub', url: '#nearby-shops' },
+      { label: 'Become a Hub', url: '/printer/register' },
+      { label: 'How It Works', url: '#how-it-works' },
+      { label: 'User Dashboard', url: '/user/dashboard' },
+      { label: 'Printer Dashboard', url: '/printer/dashboard' },
+    ],
+  },
+  legal: {
+    termsAndConditions: `# Terms and Conditions of Prinly.in\n*Last Updated: 2026-01-01*\n\nWelcome to **Prinly.in** ("Prinly", "we", "us", or "our"), operated by Prinly Technologies. By accessing or using our website, services, and online printing network, you agree to be bound by these Terms and Conditions.\n\n## 1. Acceptance of Terms\nBy creating an account, uploading documents, or registering as a Printing Hub, you confirm that you have read, understood, and agreed to these terms.\n\n## 2. Printing Services\n- Prinly connects users with independent cyber cafes and printing hubs.\n- Users are responsible for the legality and copyright ownership of documents uploaded.\n- Printing specifications (color, duplex, binding) selected during order submission govern the final output.\n\n## 3. Printing Hub Partner Responsibilities\n- Printing Hubs agree to maintain active paper stock and operational printers.\n- Hubs must inspect and fulfill orders in a timely manner according to stated queue estimates.\n- Counter cash payments must be acknowledged through the Prinly dashboard.\n\n## 4. Privacy & Document Retention\n- All uploaded files are stored temporarily on secured servers solely for output spooling.\n- Files are purged automatically after successful completion of the print job.\n\n## 5. Limitation of Liability\nPrinly is not liable for typographical errors in user-provided files or delays caused by local shop power outages or hardware faults.`,
+    privacyPolicy: `# Privacy Policy of Prinly.in\n*Last Updated: 2026-01-01*\n\nAt **Prinly.in**, we prioritize the security and confidentiality of your personal information and documents.\n\n## 1. Information We Collect\n- **Account Details:** Name, email address, phone number, and password hash.\n- **Order Details:** Print specifications, file metadata (name, page count, file size), and payment preferences.\n- **Location Data:** Approximate GPS location or chosen locality to match you with nearby printing hubs.\n\n## 2. File Confidentiality\n- Your uploaded documents are encrypted during transit using SSL/TLS protocols.\n- Hub owners only access document data for physical printing.\n- Documents are never indexed, analyzed, or shared with third parties.\n\n## 3. Contact Information\nFor privacy inquiries, reach us at **support@prinly.in**.`,
+    refundPolicy: `# Refund and Cancellation Policy\n*Last Updated: 2026-01-01*\n\nAt **Prinly.in**, customer satisfaction is our highest priority.\n\n## 1. Cancellations\n- Orders can be cancelled free of charge if the status is **WAITING** or **PENDING** before the shopkeeper starts printing.\n- Once an order transitions to **PRINTING** or **READY**, cancellations cannot be processed because paper and toner have already been expended.\n\n## 2. Defective Output & Misprints\n- If a shop delivers unreadable prints, paper jams, or incorrect color format contrary to your order specs, you are eligible for an immediate reprint or full refund.\n- Report issues directly to the hub owner at the counter or contact Prinly support within 24 hours.\n\n## 3. Refund Timelines\n- Online refunds are processed to your original payment method within 2-4 business days.`,
+    cancellationPolicy: `# Cancellation Policy\nOrders can be cancelled anytime prior to physical spooling. Once printing starts, orders are locked.`,
+  },
+};
 
 export const memoryStore = global.memoryStore;
 
@@ -504,4 +711,9 @@ export async function ensureSeedData() {
   };
 
   store.payments.push(payment1);
+
+  // Initialize CMS configuration
+  if (!store.cms) {
+    store.cms = JSON.parse(JSON.stringify(defaultCmsConfig));
+  }
 }

@@ -45,11 +45,13 @@ export default function QRCodeCard({
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-md max-w-sm mx-auto text-center">
       {/* Brand Badge */}
       <div className="flex items-center justify-center gap-2 mb-3">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs">
-          PP
-        </div>
-        <span className="font-heading text-base font-bold text-slate-900 tracking-tight">
-          Print<span className="text-blue-600">Porter</span>
+        <img
+          src="/logo.png"
+          alt="Prinly.in"
+          className="h-7 w-auto object-contain"
+        />
+        <span className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200">
+          Smart Counter Standee
         </span>
       </div>
 

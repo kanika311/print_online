@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 export default function AdminRedirectPage() {
   const router = useRouter();
   useEffect(() => {
-    router.replace('/khushi-admin');
+    router.replace('/admin/dashboard');
   }, [router]);
 
   return (

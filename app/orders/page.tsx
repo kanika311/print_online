@@ -7,18 +7,32 @@ import Navbar from '@/components/Navbar';
 export default function OrdersHistoryPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [filter, setFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ALL');
 
   useEffect(() => {
-    fetch('/api/orders')
-      .then((res) => res.json())
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data && data.orders) {
-          setOrders(data.orders);
+        if (data && data.authenticated) {
+          setCurrentUser(data.user);
+          return fetch('/api/orders')
+            .then((res) => res.json())
+            .then((ordData) => {
+              if (ordData && ordData.orders) {
+                setOrders(ordData.orders);
+              }
+            });
+        } else {
+          setCurrentUser(null);
         }
       })
       .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setAuthChecked(true);
+      });
   }, []);
 
   const filteredOrders = orders.filter((o) => {
@@ -49,44 +63,72 @@ export default function OrdersHistoryPage() {
               </p>
             </div>
 
-            {/* Filter Tabs */}
-            <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-xl p-1 text-xs shadow-sm">
-              <button
-                onClick={() => setFilter('ALL')}
-                className={`rounded-lg px-3 py-1.5 font-bold transition ${
-                  filter === 'ALL'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                All ({orders.length})
-              </button>
-              <button
-                onClick={() => setFilter('ACTIVE')}
-                className={`rounded-lg px-3 py-1.5 font-bold transition ${
-                  filter === 'ACTIVE'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Active ({orders.filter((o) => !['COMPLETED', 'CANCELLED'].includes(o.status)).length})
-              </button>
-              <button
-                onClick={() => setFilter('COMPLETED')}
-                className={`rounded-lg px-3 py-1.5 font-bold transition ${
-                  filter === 'COMPLETED'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Completed ({orders.filter((o) => o.status === 'COMPLETED').length})
-              </button>
-            </div>
+            {/* Filter Tabs (Only visible when logged in) */}
+            {currentUser && (
+              <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-xl p-1 text-xs shadow-sm">
+                <button
+                  onClick={() => setFilter('ALL')}
+                  className={`rounded-lg px-3 py-1.5 font-bold transition ${
+                    filter === 'ALL'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  All ({orders.length})
+                </button>
+                <button
+                  onClick={() => setFilter('ACTIVE')}
+                  className={`rounded-lg px-3 py-1.5 font-bold transition ${
+                    filter === 'ACTIVE'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Active ({orders.filter((o) => !['COMPLETED', 'CANCELLED'].includes(o.status)).length})
+                </button>
+                <button
+                  onClick={() => setFilter('COMPLETED')}
+                  className={`rounded-lg px-3 py-1.5 font-bold transition ${
+                    filter === 'COMPLETED'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Completed ({orders.filter((o) => o.status === 'COMPLETED').length})
+                </button>
+              </div>
+            )}
           </div>
 
           {loading ? (
             <div className="py-20 text-center text-slate-500 text-sm">
               Loading your orders...
+            </div>
+          ) : !currentUser ? (
+            <div className="rounded-3xl border border-slate-200 bg-white p-8 sm:p-12 text-center max-w-lg mx-auto shadow-xl shadow-blue-500/5">
+              <div className="h-14 w-14 mx-auto mb-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center text-2xl">
+                🔒
+              </div>
+              <h2 className="font-heading text-lg sm:text-xl font-black text-slate-900">
+                Sign In to View Your Print Orders
+              </h2>
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                Please sign in with your Prinly customer account to track active print jobs, receipts, and order collection OTPs.
+              </p>
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Link
+                  href="/login?redirect=/orders"
+                  className="w-full sm:w-auto rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-95 text-white font-bold px-6 py-2.5 text-xs shadow-md shadow-blue-600/20 transition active:scale-95"
+                >
+                  Sign In to Account →
+                </Link>
+                <Link
+                  href="/"
+                  className="w-full sm:w-auto rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-5 py-2.5 text-xs transition"
+                >
+                  Return to Home
+                </Link>
+              </div>
             </div>
           ) : filteredOrders.length > 0 ? (
             <div className="space-y-3">

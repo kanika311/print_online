@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, email, phone, password } = parsed.data;
+    const { name, email, phone, password, promoteExisting } = parsed.data;
     const emailLower = email.toLowerCase().trim();
 
     const existing = memoryStore.users.find(
@@ -33,8 +33,70 @@ export async function POST(req: NextRequest) {
     );
 
     if (existing) {
+      // If promoteExisting is requested, update credentials and ensure role is ADMIN
+      if (promoteExisting) {
+        const hashedPassword = await hashPassword(password);
+        existing.role = 'ADMIN';
+        existing.password = hashedPassword;
+        if (name && name.trim()) existing.name = name.trim();
+        if (phone) existing.phone = phone;
+        existing.avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(existing.name)}`;
+        existing.updatedAt = new Date();
+
+        if (!isFallback) {
+          try {
+            await User.findOneAndUpdate(
+              { email: emailLower },
+              {
+                role: 'ADMIN',
+                password: hashedPassword,
+                name: existing.name,
+                phone: existing.phone,
+                avatarUrl: existing.avatarUrl,
+                updatedAt: new Date(),
+              }
+            );
+          } catch (err) {
+            console.warn('DB promote admin error:', err);
+          }
+        }
+
+        return NextResponse.json({
+          success: true,
+          promoted: true,
+          message: `Account '${emailLower}' successfully updated to Super Admin!`,
+          user: {
+            id: existing._id,
+            name: existing.name,
+            email: existing.email,
+            phone: existing.phone,
+            role: 'ADMIN',
+            createdAt: existing.createdAt,
+          },
+        });
+      }
+
+      // If already an ADMIN and not promoting/updating
+      if (existing.role === 'ADMIN') {
+        return NextResponse.json(
+          { error: 'An administrator with this email already exists' },
+          { status: 409 }
+        );
+      }
+
+      const roleLabel =
+        existing.role === 'SHOP_OWNER'
+          ? 'Printer Hub Partner (Shop Owner)'
+          : 'Customer';
+
       return NextResponse.json(
-        { error: 'An administrator with this email already exists' },
+        {
+          error: `This email is already registered as a ${roleLabel} (${existing.name}). You can upgrade this account to Super Admin or use another email.`,
+          canPromote: true,
+          existingRole: existing.role,
+          existingName: existing.name,
+          existingEmail: existing.email,
+        },
         { status: 409 }
       );
     }

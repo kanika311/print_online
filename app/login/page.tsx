@@ -1,15 +1,27 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialRole = searchParams.get('role');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedTab, setSelectedTab] = useState<'CUSTOMER' | 'SHOP_OWNER'>(
+    initialRole === 'printer_owner' ? 'SHOP_OWNER' : 'CUSTOMER'
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialRole === 'printer_owner') {
+      setSelectedTab('SHOP_OWNER');
+    }
+  }, [initialRole]);
 
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -31,16 +43,18 @@ export default function LoginPage() {
       if (data.token) {
         localStorage.setItem('printporter_token', data.token);
         localStorage.setItem('printporter_user', JSON.stringify(data.user));
-        document.cookie = `printporter_token=${data.token}; path=/; max-age=604800; SameSite=Lax; ${window.location.protocol === 'https:' ? 'Secure;' : ''}`;
+        document.cookie = `printporter_token=${data.token}; path=/; max-age=604800; SameSite=Lax; ${
+          window.location.protocol === 'https:' ? 'Secure;' : ''
+        }`;
       }
 
-      // Route based on role
+      // Role-based redirection:
       if (data.user.role === 'ADMIN') {
         window.location.href = '/khushi-admin';
       } else if (data.user.role === 'SHOP_OWNER') {
         window.location.href = '/printer/dashboard';
       } else {
-        window.location.href = '/';
+        window.location.href = '/user/dashboard';
       }
     } catch (err: any) {
       setError(err.message || 'Login failed');
@@ -51,6 +65,7 @@ export default function LoginPage() {
 
   // 1-Click Quick Fill for testing
   const quickFill = (role: 'CUSTOMER' | 'SHOP_OWNER') => {
+    setSelectedTab(role);
     if (role === 'SHOP_OWNER') {
       setEmail('rajesh@cyberprint.com');
       setPassword('Shop@123');
@@ -63,101 +78,118 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-slate-50 px-4 py-12 text-slate-900">
       <div className="w-full max-w-md">
-        {/* Brand Logo */}
+        {/* Brand Header */}
         <div className="text-center mb-6">
-          <Link href="/" className="inline-flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-sm tracking-wider">
-              PP
-            </div>
-            <span className="font-heading text-2xl font-black text-slate-900 tracking-tight">
-              Print<span className="text-blue-600">Porter</span>
-            </span>
+          <Link href="/" className="inline-flex flex-col items-center gap-2 group">
+            <img
+              src="/logo.png"
+              alt="Prinly.in - Print • Scan • Online"
+              className="h-12 w-auto object-contain drop-shadow transition group-hover:scale-105"
+            />
           </Link>
           <h2 className="mt-3 font-heading text-lg font-bold text-slate-900">
-            Sign In to PrintPorter
+            Sign In to Prinly Platform
           </h2>
           <p className="text-xs text-slate-500">
-            Access your orders, shop dashboard, or customer account
+            Customer & Cyber Café Hub Partner Access
           </p>
         </div>
 
-        {/* 1-Click Demo Accounts Selector */}
-        <div className="mb-5 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
+        {/* 1-Click Demo Accounts Selector (Confidential Admin excluded from public view) */}
+        <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-            1-Click Quick Test Logins
+            1-Click Quick Fill
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2.5">
             <button
               type="button"
               onClick={() => quickFill('CUSTOMER')}
-              className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-center hover:border-blue-500 hover:bg-blue-50/50 transition"
+              className={`rounded-xl border p-2.5 text-center transition ${
+                selectedTab === 'CUSTOMER'
+                  ? 'border-blue-600 bg-blue-50/70 text-blue-700'
+                  : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
             >
-              <span className="text-xs font-bold text-slate-900 block">Customer</span>
-              <span className="text-[10px] text-slate-500">aman@student.edu</span>
+              <span className="text-xs font-black block">User (Customer)</span>
+              <span className="text-[10px] text-slate-500 truncate block">aman@student.edu</span>
             </button>
 
             <button
               type="button"
               onClick={() => quickFill('SHOP_OWNER')}
-              className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-center hover:border-blue-500 hover:bg-blue-50/50 transition"
+              className={`rounded-xl border p-2.5 text-center transition ${
+                selectedTab === 'SHOP_OWNER'
+                  ? 'border-cyan-500 bg-cyan-50/70 text-cyan-800'
+                  : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
             >
-              <span className="text-xs font-bold text-slate-900 block">Shop Owner</span>
-              <span className="text-[10px] text-slate-500">rajesh@cyberprint.com</span>
+              <span className="text-xs font-black block">Hub Owner (Shop)</span>
+              <span className="text-[10px] text-slate-500 truncate block">rajesh@cyberprint.com</span>
             </button>
           </div>
         </div>
 
-        {/* Login Form */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 md:p-7 shadow-md">
+        {/* Main Login Form */}
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
           {error && (
-            <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 font-semibold">
-              Notice: {error}
+            <div className="mb-4 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 font-semibold">
+              {error}
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-3.5">
+          <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                Email Address
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Email Address or Phone
               </label>
               <input
-                type="email"
+                type="text"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
-                className="w-full rounded-xl border border-slate-300 bg-white py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-blue-600 shadow-sm"
+                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 font-medium transition"
               />
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700">
+                  Password
+                </label>
+                <a href="#" className="text-[11px] font-bold text-blue-600 hover:underline">
+                  Forgot?
+                </a>
+              </div>
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-xl border border-slate-300 bg-white py-2 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-blue-600 shadow-sm"
+                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 font-medium transition"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="mt-5 w-full rounded-xl bg-blue-600 hover:bg-blue-700 py-2.5 text-xs font-bold text-white shadow-sm transition active:scale-95 disabled:opacity-50"
+              className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 py-3 text-xs font-black text-white shadow-md shadow-blue-600/20 hover:opacity-95 transition active:scale-95 disabled:opacity-50"
             >
-              {loading ? 'Signing In...' : 'Sign In'}
+              {loading ? 'Authenticating...' : 'Sign In to Dashboard →'}
             </button>
           </form>
 
-          <div className="mt-5 text-center text-xs text-slate-500">
+          {/* Registration redirects */}
+          <div className="mt-5 pt-4 border-t border-slate-100 text-center text-xs text-slate-500">
             Don't have an account?{' '}
             <Link href="/register" className="font-bold text-blue-600 hover:underline">
-              Create Customer Account
+              Register as User
+            </Link>
+            {' • '}
+            <Link href="/printer/register" className="font-bold text-cyan-600 hover:underline">
+              Join as Hub
             </Link>
           </div>
         </div>

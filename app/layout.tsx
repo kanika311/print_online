@@ -2,16 +2,17 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'PrintPorter — Smart Printing & Cyber Café Platform',
+  title: 'Prinly.in — Online → Local Printing Network',
   description:
-    'On-demand cloud printing platform connecting users with nearby cyber cafes with real-time queue tracking, QR ordering, and fleet management.',
+    'Upload Anywhere. Print Nearby. Collect Instantly. Smart cyber cafe print network with real-time queue tracking, direct shop UPI, and 3D visual experience.',
   keywords: [
-    'print shop',
-    'cyber cafe',
+    'Prinly',
+    'Prinly.in',
     'online printing',
-    'smart printer',
-    'print queue',
-    'cloud print',
+    'cyber cafe network',
+    'cloud printing',
+    'local printer',
+    'print documents nearby',
   ],
 };
 
