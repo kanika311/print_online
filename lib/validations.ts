@@ -111,7 +111,7 @@ export const PrinterCreateSchema = z.object({
   name: z.string().min(2, 'Printer display name is required'),
   model: z.string().min(2, 'Printer model is required'),
   type: z.enum(['COLOR', 'MONOCHROME']),
-  paperSizes: z.array(z.string()).min(1, 'At least one paper size required'),
+  paperSizes: z.array(z.string()).optional().default(['A4', 'A3', 'Legal']),
   ppmSpeed: z.number().min(5).max(120).default(30),
   supportsDuplex: z.boolean().default(true),
   connectionType: z.enum(['NETWORK_IP', 'USB_PORT', 'CLOUD_AGENT']).optional().default('NETWORK_IP'),

@@ -18,6 +18,11 @@ export async function GET(
       try {
         printer = await Printer.findById(printerId).lean();
       } catch {}
+      if (!printer) {
+        try {
+          printer = await Printer.findOne({ _id: printerId }).lean();
+        } catch {}
+      }
     }
 
     if (!printer) {
@@ -48,55 +53,94 @@ export async function PATCH(
     const printerId = params.id;
     const body = await req.json();
 
-    const printerIdx = memoryStore.printers.findIndex((p) => p._id === printerId);
-    if (printerIdx === -1) {
+    let memPrinter = memoryStore.printers.find((p) => p._id === printerId);
+    let dbPrinter: any = null;
+
+    if (!isFallback) {
+      try {
+        dbPrinter = await Printer.findById(printerId);
+      } catch {}
+      if (!dbPrinter) {
+        try {
+          dbPrinter = await Printer.findOne({ _id: printerId });
+        } catch {}
+      }
+    }
+
+    if (!memPrinter && !dbPrinter) {
       return NextResponse.json({ error: 'Printer not found' }, { status: 404 });
     }
 
-    const printer = memoryStore.printers[printerIdx];
+    const targetShopId = memPrinter?.shopId || dbPrinter?.shopId;
 
     // Security check: if shop owner, must own the shop of this printer
     if (
       authResult.session?.role === 'SHOP_OWNER' &&
       authResult.session.shopId &&
-      authResult.session.shopId !== printer.shopId
+      authResult.session.shopId !== targetShopId
     ) {
       return NextResponse.json({ error: 'Unauthorized to modify this printer' }, { status: 403 });
     }
 
-    if (body.name !== undefined) printer.name = body.name;
-    if (body.model !== undefined) printer.model = body.model;
-    if (body.type !== undefined) printer.type = body.type;
-    if (body.ppmSpeed !== undefined) printer.ppmSpeed = Number(body.ppmSpeed);
-    if (body.paperSizes !== undefined) printer.paperSizes = body.paperSizes;
-    if (body.supportsDuplex !== undefined) printer.supportsDuplex = Boolean(body.supportsDuplex);
-    if (body.connectionType !== undefined) printer.connectionType = body.connectionType;
-    if (body.ipAddress !== undefined) printer.ipAddress = body.ipAddress;
-    if (body.portNumber !== undefined) printer.portNumber = Number(body.portNumber);
-    if (body.usbPort !== undefined) printer.usbPort = body.usbPort;
-    if (body.isLinked !== undefined) printer.isLinked = Boolean(body.isLinked);
-    if (body.notes !== undefined) printer.notes = body.notes;
-    printer.updatedAt = new Date();
+    const portNum = body.portNumber !== undefined 
+      ? Number(body.portNumber) 
+      : (body.port !== undefined ? Number(body.port) : undefined);
 
-    if (!isFallback) {
+    const now = new Date();
+
+    if (memPrinter) {
+      if (body.name !== undefined) memPrinter.name = body.name;
+      if (body.model !== undefined) memPrinter.model = body.model;
+      if (body.type !== undefined) memPrinter.type = body.type;
+      if (body.ppmSpeed !== undefined) memPrinter.ppmSpeed = Number(body.ppmSpeed);
+      if (body.paperSizes !== undefined) memPrinter.paperSizes = body.paperSizes;
+      if (body.supportsDuplex !== undefined) memPrinter.supportsDuplex = Boolean(body.supportsDuplex);
+      if (body.connectionType !== undefined) memPrinter.connectionType = body.connectionType;
+      if (body.ipAddress !== undefined) memPrinter.ipAddress = body.ipAddress;
+      if (portNum !== undefined) memPrinter.portNumber = portNum;
+      if (body.usbPort !== undefined) memPrinter.usbPort = body.usbPort;
+      if (body.isLinked !== undefined) memPrinter.isLinked = Boolean(body.isLinked);
+      if (body.notes !== undefined) memPrinter.notes = body.notes;
+      memPrinter.updatedAt = now;
+    }
+
+    if (dbPrinter) {
+      if (body.name !== undefined) dbPrinter.name = body.name;
+      if (body.model !== undefined) dbPrinter.model = body.model;
+      if (body.type !== undefined) dbPrinter.type = body.type;
+      if (body.ppmSpeed !== undefined) dbPrinter.ppmSpeed = Number(body.ppmSpeed);
+      if (body.paperSizes !== undefined) dbPrinter.paperSizes = body.paperSizes;
+      if (body.supportsDuplex !== undefined) dbPrinter.supportsDuplex = Boolean(body.supportsDuplex);
+      if (body.connectionType !== undefined) dbPrinter.connectionType = body.connectionType;
+      if (body.ipAddress !== undefined) dbPrinter.ipAddress = body.ipAddress;
+      if (portNum !== undefined) dbPrinter.portNumber = portNum;
+      if (body.usbPort !== undefined) dbPrinter.usbPort = body.usbPort;
+      if (body.isLinked !== undefined) dbPrinter.isLinked = Boolean(body.isLinked);
+      if (body.notes !== undefined) dbPrinter.notes = body.notes;
+      dbPrinter.updatedAt = now;
       try {
-        await Printer.findByIdAndUpdate(printerId, printer);
+        await dbPrinter.save();
       } catch (err) {
         console.warn('DB update error for printer:', err);
       }
     }
 
-    emitSocketEvent('printer:status_updated', printer, `shop:${printer.shopId}`);
+    const updatedPrinter = memPrinter || (dbPrinter?.toObject ? dbPrinter.toObject() : dbPrinter);
+
+    emitSocketEvent('printer:status_updated', updatedPrinter, `shop:${targetShopId}`);
 
     return NextResponse.json({
       success: true,
       message: 'Printer machine updated successfully',
-      printer,
+      printer: updatedPrinter,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+// Support both PUT and PATCH for updating printer details
+export const PUT = PATCH;
 
 // DELETE: Delete a printer machine from the fleet
 export async function DELETE(
@@ -115,32 +159,48 @@ export async function DELETE(
     const { isFallback } = await connectDB();
     const printerId = params.id;
 
-    const printerIdx = memoryStore.printers.findIndex((p) => p._id === printerId);
-    if (printerIdx === -1) {
+    let printerIdx = memoryStore.printers.findIndex((p) => p._id === printerId);
+    let memPrinter = printerIdx !== -1 ? memoryStore.printers[printerIdx] : null;
+    let dbPrinter: any = null;
+
+    if (!isFallback) {
+      try {
+        dbPrinter = await Printer.findById(printerId);
+      } catch {}
+      if (!dbPrinter) {
+        try {
+          dbPrinter = await Printer.findOne({ _id: printerId });
+        } catch {}
+      }
+    }
+
+    if (!memPrinter && !dbPrinter) {
       return NextResponse.json({ error: 'Printer not found' }, { status: 404 });
     }
 
-    const printer = memoryStore.printers[printerIdx];
+    const targetShopId = memPrinter?.shopId || dbPrinter?.shopId;
 
     if (
       authResult.session?.role === 'SHOP_OWNER' &&
       authResult.session.shopId &&
-      authResult.session.shopId !== printer.shopId
+      authResult.session.shopId !== targetShopId
     ) {
       return NextResponse.json({ error: 'Unauthorized to delete this printer' }, { status: 403 });
     }
 
-    memoryStore.printers.splice(printerIdx, 1);
+    if (printerIdx !== -1) {
+      memoryStore.printers.splice(printerIdx, 1);
+    }
 
     if (!isFallback) {
       try {
-        await Printer.findByIdAndDelete(printerId);
+        await Printer.deleteMany({ _id: printerId });
       } catch (err) {
         console.warn('DB delete error for printer:', err);
       }
     }
 
-    emitSocketEvent('printer:deleted', { printerId }, `shop:${printer.shopId}`);
+    emitSocketEvent('printer:deleted', { printerId }, `shop:${targetShopId}`);
 
     return NextResponse.json({
       success: true,

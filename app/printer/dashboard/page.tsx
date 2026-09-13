@@ -281,7 +281,7 @@ export default function PrinterDashboardPage() {
         : 'AVAILABLE';
 
     try {
-      const res = await fetch(`/api/printers/${printerId}/status`, {
+      const res = await shopFetch(`/api/printers/${printerId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: nextStatus }),
@@ -299,7 +299,7 @@ export default function PrinterDashboardPage() {
   // Approve Cash Payment
   const handleApproveCash = async (orderId: string, orderNumber: string) => {
     try {
-      const res = await fetch(`/api/orders/${orderId}/approve-cash`, {
+      const res = await shopFetch(`/api/orders/${orderId}/approve-cash`, {
         method: 'POST',
       });
 
@@ -315,7 +315,7 @@ export default function PrinterDashboardPage() {
   // Update Order Status Pipeline: QUEUED -> PRINTING -> READY -> COMPLETED
   const handleUpdateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
-      const res = await fetch(`/api/orders/${orderId}/status`, {
+      const res = await shopFetch(`/api/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
@@ -335,7 +335,7 @@ export default function PrinterDashboardPage() {
     e.preventDefault();
     setSavingPricing(true);
     try {
-      const res = await fetch(`/api/shops/${shopId}/pricing`, {
+      const res = await shopFetch(`/api/shops/${shopId}/pricing`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(pricingRates),
@@ -433,33 +433,41 @@ export default function PrinterDashboardPage() {
   const handleAddPrinter = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`/api/shops/${shopId}/printers`, {
+      const payload = {
+        shopId,
+        name: newPrinterName.trim() || 'HP LaserJet Enterprise',
+        model: newPrinterModel.trim() || 'M607dn Heavy Duty',
+        type: newPrinterType,
+        ppmSpeed: Number(newPrinterPPM) || 30,
+        connectionType: newPrinterConnectionType,
+        ipAddress: newPrinterConnectionType === 'NETWORK_IP' ? newPrinterIp.trim() : undefined,
+        portNumber: newPrinterConnectionType === 'NETWORK_IP' ? Number(newPrinterPort) : undefined,
+        port: newPrinterConnectionType === 'NETWORK_IP' ? Number(newPrinterPort) : undefined,
+        usbPort: newPrinterConnectionType === 'USB_PORT' ? newPrinterUsbPort.trim() : undefined,
+        supportsDuplex: true,
+        paperSizes: ['A4', 'A3', 'Legal'],
+        isLinked: true,
+      };
+
+      const res = await shopFetch(`/api/shops/${shopId}/printers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newPrinterName.trim() || 'HP LaserJet Enterprise',
-          model: newPrinterModel.trim() || 'M607dn Heavy Duty',
-          type: newPrinterType,
-          ppmSpeed: Number(newPrinterPPM) || 30,
-          connectionType: newPrinterConnectionType,
-          ipAddress: newPrinterConnectionType === 'NETWORK_IP' ? newPrinterIp.trim() : undefined,
-          port: newPrinterConnectionType === 'NETWORK_IP' ? Number(newPrinterPort) : undefined,
-          usbPort: newPrinterConnectionType === 'USB_PORT' ? newPrinterUsbPort.trim() : undefined,
-          supportsDuplex: true,
-        }),
+        body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        showNotification('New printer machine linked!');
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && (data.success || data.printer)) {
+        showNotification('New printer machine linked successfully!');
         setShowAddPrinterModal(false);
         setNewPrinterName('');
         setNewPrinterModel('');
         loadDashboardData(shopId);
       } else {
-        showNotification('Failed to link printer');
+        showNotification(data.error || 'Failed to link printer');
       }
-    } catch (err) {
-      showNotification('Failed to link printer');
+    } catch (err: any) {
+      showNotification(err.message || 'Failed to link printer');
     }
   };
 
@@ -472,7 +480,7 @@ export default function PrinterDashboardPage() {
     setEditPrinterPPM(printer.ppmSpeed || 30);
     setEditPrinterConnectionType(printer.connectionType || 'NETWORK_IP');
     setEditPrinterIp(printer.ipAddress || '192.168.1.100');
-    setEditPrinterPort(printer.port || 9100);
+    setEditPrinterPort(printer.portNumber || printer.port || 9100);
     setEditPrinterUsbPort(printer.usbPort || 'USB001');
     setShowEditPrinterModal(true);
   };
@@ -482,20 +490,25 @@ export default function PrinterDashboardPage() {
     if (!editingPrinter) return;
 
     try {
-      const res = await fetch(`/api/printers/${editingPrinter._id || editingPrinter.id}`, {
-        method: 'PUT',
+      const payload = {
+        name: editPrinterName.trim(),
+        model: editPrinterModel.trim(),
+        type: editPrinterType,
+        ppmSpeed: Number(editPrinterPPM) || 30,
+        connectionType: editPrinterConnectionType,
+        ipAddress: editPrinterConnectionType === 'NETWORK_IP' ? editPrinterIp.trim() : undefined,
+        portNumber: editPrinterConnectionType === 'NETWORK_IP' ? Number(editPrinterPort) : undefined,
+        port: editPrinterConnectionType === 'NETWORK_IP' ? Number(editPrinterPort) : undefined,
+        usbPort: editPrinterConnectionType === 'USB_PORT' ? editPrinterUsbPort.trim() : undefined,
+      };
+
+      const res = await shopFetch(`/api/printers/${editingPrinter._id || editingPrinter.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editPrinterName.trim(),
-          model: editPrinterModel.trim(),
-          type: editPrinterType,
-          ppmSpeed: Number(editPrinterPPM) || 30,
-          connectionType: editPrinterConnectionType,
-          ipAddress: editPrinterConnectionType === 'NETWORK_IP' ? editPrinterIp.trim() : undefined,
-          port: editPrinterConnectionType === 'NETWORK_IP' ? Number(editPrinterPort) : undefined,
-          usbPort: editPrinterConnectionType === 'USB_PORT' ? editPrinterUsbPort.trim() : undefined,
-        }),
+        body: JSON.stringify(payload),
       });
+
+      const data = await res.json().catch(() => ({}));
 
       if (res.ok) {
         showNotification('Printer details updated successfully!');
@@ -503,10 +516,10 @@ export default function PrinterDashboardPage() {
         setEditingPrinter(null);
         loadDashboardData(shopId);
       } else {
-        showNotification('Failed to update printer');
+        showNotification(data.error || 'Failed to update printer');
       }
-    } catch (err) {
-      showNotification('Failed to update printer');
+    } catch (err: any) {
+      showNotification(err.message || 'Failed to update printer');
     }
   };
 
@@ -517,18 +530,20 @@ export default function PrinterDashboardPage() {
     }
 
     try {
-      const res = await fetch(`/api/printers/${printerId}`, {
+      const res = await shopFetch(`/api/printers/${printerId}`, {
         method: 'DELETE',
       });
+
+      const data = await res.json().catch(() => ({}));
 
       if (res.ok) {
         showNotification(`Printer "${printerName}" removed.`);
         loadDashboardData(shopId);
       } else {
-        showNotification('Failed to delete printer');
+        showNotification(data.error || 'Failed to delete printer');
       }
-    } catch (err) {
-      showNotification('Failed to delete printer');
+    } catch (err: any) {
+      showNotification(err.message || 'Failed to delete printer');
     }
   };
 
@@ -536,9 +551,9 @@ export default function PrinterDashboardPage() {
   const handlePingPrinter = async (printerId: string) => {
     setPingingPrinterId(printerId);
     try {
-      const res = await fetch(`/api/printers/${printerId}/ping`, { method: 'POST' });
-      const data = await res.json();
-      if (data.online) {
+      const res = await shopFetch(`/api/printers/${printerId}/ping`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.online) {
         showNotification(`Printer responded: Online (${data.latencyMs || 8}ms latency)`);
       } else {
         showNotification(`Printer offline: ${data.message || 'No connection'}`);
@@ -554,17 +569,19 @@ export default function PrinterDashboardPage() {
   const handleSelectPlan = async (planId: string, planName: string) => {
     setUpdatingPlan(true);
     try {
-      const res = await fetch(`/api/shops/${shopId}/plan`, {
+      const res = await shopFetch(`/api/shops/${shopId}/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId }),
+        body: JSON.stringify({ planId, planName }),
       });
+
+      const data = await res.json().catch(() => ({}));
 
       if (res.ok) {
         showNotification(`Subscription updated to "${planName}"!`);
         loadDashboardData(shopId);
       } else {
-        showNotification('Failed to update plan');
+        showNotification(data.error || 'Failed to update plan');
       }
     } catch (e) {
       showNotification('Failed to update plan');

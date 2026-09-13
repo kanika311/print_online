@@ -5,27 +5,24 @@ import { PrinterCreateSchema } from '@/lib/validations';
 import { emitSocketEvent } from '@/lib/socketServer';
 import { Printer } from '@/models/Printer';
 
-export async function GET(req: NextRequest) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     const { isFallback } = await connectDB();
-    const { searchParams } = new URL(req.url);
-    const shopId = searchParams.get('shopId');
+    const shopId = params.id;
 
     let printers: any[] = [];
     if (!isFallback) {
       try {
-        const query = shopId ? { shopId } : {};
-        printers = await Printer.find(query).lean();
+        printers = await Printer.find({ shopId }).lean();
       } catch (err) {
-        console.warn('DB query error in printers:', err);
-        printers = memoryStore.printers;
+        console.warn('DB query error in shop printers GET:', err);
+        printers = memoryStore.printers.filter((p) => p.shopId === shopId);
       }
     } else {
-      printers = memoryStore.printers;
-    }
-
-    if (shopId) {
-      printers = printers.filter((p) => p.shopId === shopId);
+      printers = memoryStore.printers.filter((p) => p.shopId === shopId);
     }
 
     return NextResponse.json({ printers });
@@ -37,7 +34,10 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     const authResult = authorize(req, ['ADMIN', 'SHOP_OWNER']);
     if (authResult.error) {
@@ -48,11 +48,22 @@ export async function POST(req: NextRequest) {
     }
 
     const { isFallback } = await connectDB();
+    const shopId = params.id;
     const body = await req.json();
 
-    if (!body.shopId && authResult.session?.shopId) {
-      body.shopId = authResult.session.shopId;
+    // Verify shop ownership if shop owner
+    if (
+      authResult.session?.role === 'SHOP_OWNER' &&
+      authResult.session.shopId &&
+      authResult.session.shopId !== shopId
+    ) {
+      return NextResponse.json(
+        { error: 'You can only add printers to your own shop' },
+        { status: 403 }
+      );
     }
+
+    body.shopId = shopId;
     if (!body.paperSizes || !Array.isArray(body.paperSizes) || body.paperSizes.length === 0) {
       body.paperSizes = ['A4', 'A3', 'Legal'];
     }
@@ -69,23 +80,10 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
-
-    // Verify shop ownership if shop owner
-    if (
-      authResult.session?.role === 'SHOP_OWNER' &&
-      authResult.session.shopId &&
-      authResult.session.shopId !== data.shopId
-    ) {
-      return NextResponse.json(
-        { error: 'You can only add printers to your own shop' },
-        { status: 403 }
-      );
-    }
-
     const printerId = `prn_${Date.now()}`;
     const newPrinter = {
       _id: printerId,
-      shopId: data.shopId,
+      shopId,
       name: data.name,
       model: data.model,
       type: data.type,
@@ -112,14 +110,15 @@ export async function POST(req: NextRequest) {
     if (!isFallback) {
       try {
         await Printer.create(newPrinter);
-      } catch {
+      } catch (err) {
+        console.warn('DB create error for printer in shop printers POST, using memory store:', err);
         memoryStore.printers.push(newPrinter);
       }
     } else {
       memoryStore.printers.push(newPrinter);
     }
 
-    emitSocketEvent('printer:added', newPrinter, `shop:${data.shopId}`);
+    emitSocketEvent('printer:added', newPrinter, `shop:${shopId}`);
 
     return NextResponse.json({
       success: true,
