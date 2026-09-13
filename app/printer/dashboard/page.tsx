@@ -183,11 +183,23 @@ export default function PrinterDashboardPage() {
     setRefreshing(true);
     try {
       // 1. Fetch Shop details & Printers
-      const shopRes = await fetch(`/api/shops/${targetShopId}`);
+      const shopRes = await shopFetch(`/api/shops/${targetShopId}`);
       if (shopRes.ok) {
         const shopData = await shopRes.json();
         setShop(shopData.shop);
-        setPrinters(shopData.printers || []);
+        let shopPrinters = shopData.printers || [];
+        if (shopPrinters.length === 0) {
+          try {
+            const prnRes = await shopFetch(`/api/shops/${targetShopId}/printers`);
+            if (prnRes.ok) {
+              const prnData = await prnRes.json();
+              if (prnData.printers && prnData.printers.length > 0) {
+                shopPrinters = prnData.printers;
+              }
+            }
+          } catch {}
+        }
+        setPrinters(shopPrinters);
         if (shopData.shop?.pricingRates) {
           setPricingRates(shopData.shop.pricingRates);
         }
@@ -462,6 +474,12 @@ export default function PrinterDashboardPage() {
         setShowAddPrinterModal(false);
         setNewPrinterName('');
         setNewPrinterModel('');
+        if (data.printer) {
+          setPrinters((prev) => {
+            const exists = prev.some((p) => (p._id || p.id) === (data.printer._id || data.printer.id));
+            return exists ? prev : [data.printer, ...prev];
+          });
+        }
         loadDashboardData(shopId);
       } else {
         showNotification(data.error || 'Failed to link printer');

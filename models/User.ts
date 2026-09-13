@@ -2,7 +2,8 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export type UserRole = 'CUSTOMER' | 'SHOP_OWNER' | 'ADMIN';
 
-export interface IUser extends Document {
+export interface IUser {
+  _id?: string;
   name: string;
   email: string;
   phone: string;
@@ -19,6 +20,7 @@ export interface IUser extends Document {
 
 const UserSchema = new Schema<IUser>(
   {
+    _id: { type: String },
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     phone: { type: String, required: true, trim: true },

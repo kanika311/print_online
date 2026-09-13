@@ -22,7 +22,8 @@ export interface OrderFileItem {
   pages: number;
 }
 
-export interface IOrder extends Document {
+export interface IOrder {
+  _id?: string;
   orderNumber: string;
   customerId: string;
   customerName: string;
@@ -86,6 +87,7 @@ export interface IOrder extends Document {
 
 const OrderSchema = new Schema<IOrder>(
   {
+    _id: { type: String },
     orderNumber: { type: String, required: true, unique: true, index: true },
     customerId: { type: String, required: true, index: true },
     customerName: { type: String, required: true },

@@ -35,6 +35,7 @@ export interface IPrinter {
 
 const PrinterSchema = new Schema<IPrinter>(
   {
+    _id: { type: String },
     shopId: { type: String, required: true, index: true },
     name: { type: String, required: true, trim: true },
     model: { type: String, required: true },

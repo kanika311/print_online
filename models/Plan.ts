@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
-export interface IPlan extends Document {
+export interface IPlan {
+  _id?: string;
   name: string;
   priceMonthly: number;
   priceYearly: number;
@@ -16,6 +17,7 @@ export interface IPlan extends Document {
 
 const PlanSchema = new Schema<IPlan>(
   {
+    _id: { type: String },
     name: { type: String, required: true, unique: true },
     priceMonthly: { type: Number, required: true },
     priceYearly: { type: Number, required: true },

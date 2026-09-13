@@ -35,11 +35,21 @@ export async function GET(
     if (!isFallback) {
       try {
         printers = await Printer.find({ shopId }).lean();
-      } catch {
-        printers = memoryStore.printers.filter((p) => p.shopId === shopId);
+      } catch (err) {
+        console.warn('DB query error for shop printers:', err);
       }
-    } else {
-      printers = memoryStore.printers.filter((p) => p.shopId === shopId);
+    }
+
+    const memPrinters = memoryStore.printers.filter((p) => p.shopId === shopId);
+    if (!printers || printers.length === 0) {
+      printers = memPrinters;
+    } else if (memPrinters.length > 0) {
+      const existingIds = new Set(printers.map((p: any) => (p._id || p.id).toString()));
+      for (const mp of memPrinters) {
+        if (!existingIds.has((mp._id || mp.id).toString())) {
+          printers.push(mp);
+        }
+      }
     }
 
     // Get active queue orders
@@ -50,15 +60,23 @@ export async function GET(
           shopId,
           status: { $in: ['QUEUED', 'PRINTING'] },
         }).lean();
-      } catch {
-        activeOrders = memoryStore.orders.filter(
-          (o) => o.shopId === shopId && ['QUEUED', 'PRINTING'].includes(o.status)
-        );
+      } catch (err) {
+        console.warn('DB query error for shop orders:', err);
       }
-    } else {
-      activeOrders = memoryStore.orders.filter(
-        (o) => o.shopId === shopId && ['QUEUED', 'PRINTING'].includes(o.status)
-      );
+    }
+
+    const memOrders = memoryStore.orders.filter(
+      (o) => o.shopId === shopId && ['QUEUED', 'PRINTING'].includes(o.status)
+    );
+    if (!activeOrders || activeOrders.length === 0) {
+      activeOrders = memOrders;
+    } else if (memOrders.length > 0) {
+      const existingIds = new Set(activeOrders.map((o: any) => (o._id || o.id).toString()));
+      for (const mo of memOrders) {
+        if (!existingIds.has((mo._id || mo.id).toString())) {
+          activeOrders.push(mo);
+        }
+      }
     }
 
     // Calculate total pages in queue

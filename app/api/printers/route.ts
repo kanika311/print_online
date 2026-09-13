@@ -18,14 +18,22 @@ export async function GET(req: NextRequest) {
         printers = await Printer.find(query).lean();
       } catch (err) {
         console.warn('DB query error in printers:', err);
-        printers = memoryStore.printers;
       }
-    } else {
-      printers = memoryStore.printers;
     }
 
-    if (shopId) {
-      printers = printers.filter((p) => p.shopId === shopId);
+    const memPrinters = shopId
+      ? memoryStore.printers.filter((p) => p.shopId === shopId)
+      : memoryStore.printers;
+
+    if (!printers || printers.length === 0) {
+      printers = memPrinters;
+    } else if (memPrinters.length > 0) {
+      const existingIds = new Set(printers.map((p: any) => (p._id || p.id).toString()));
+      for (const mp of memPrinters) {
+        if (!existingIds.has((mp._id || mp.id).toString())) {
+          printers.push(mp);
+        }
+      }
     }
 
     return NextResponse.json({ printers });
@@ -112,11 +120,16 @@ export async function POST(req: NextRequest) {
     if (!isFallback) {
       try {
         await Printer.create(newPrinter);
-      } catch {
-        memoryStore.printers.push(newPrinter);
+      } catch (err) {
+        console.warn('DB create error for printer in printers POST:', err);
       }
-    } else {
+    }
+
+    const existingIdx = memoryStore.printers.findIndex((p) => p._id === newPrinter._id);
+    if (existingIdx === -1) {
       memoryStore.printers.push(newPrinter);
+    } else {
+      memoryStore.printers[existingIdx] = newPrinter;
     }
 
     emitSocketEvent('printer:added', newPrinter, `shop:${data.shopId}`);

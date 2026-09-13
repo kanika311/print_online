@@ -318,8 +318,8 @@ export async function connectDB(): Promise<{ isFallback: boolean }> {
 export async function ensureSeedData() {
   const store = global.memoryStore!;
 
-  // 1. Check if seed already populated
-  if (store.users.length > 0) return;
+  // 1. Populate in-memory store if empty
+  if (store.users.length === 0) {
 
   const hashedPassword = await bcrypt.hash('Admin@123', 10);
   const shopPassword = await bcrypt.hash('Shop@123', 10);
@@ -715,5 +715,43 @@ export async function ensureSeedData() {
   // Initialize CMS configuration
   if (!store.cms) {
     store.cms = JSON.parse(JSON.stringify(defaultCmsConfig));
+  }
+  }
+
+  // 2. Also populate MongoDB collections if connected and empty
+  if (!cached.isFallback) {
+    try {
+      const User = mongoose.models.User || (await import('@/models/User')).default;
+      const Shop = mongoose.models.Shop || (await import('@/models/Shop')).default;
+      const Printer = mongoose.models.Printer || (await import('@/models/Printer')).default;
+      const Plan = mongoose.models.Plan || (await import('@/models/Plan')).default;
+
+      if (User) {
+        const uCount = await User.countDocuments();
+        if (uCount === 0) {
+          await User.insertMany(store.users).catch(() => {});
+        }
+      }
+      if (Shop) {
+        const sCount = await Shop.countDocuments();
+        if (sCount === 0) {
+          await Shop.insertMany(store.shops).catch(() => {});
+        }
+      }
+      if (Printer) {
+        const pCount = await Printer.countDocuments();
+        if (pCount === 0) {
+          await Printer.insertMany(store.printers).catch(() => {});
+        }
+      }
+      if (Plan) {
+        const plCount = await Plan.countDocuments();
+        if (plCount === 0) {
+          await Plan.insertMany(store.plans).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn('DB seed error in ensureSeedData:', e);
+    }
   }
 }

@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
-export interface IShop extends Document {
+export interface IShop {
+  _id?: string;
   name: string;
   ownerId: string;
   address: string;
@@ -46,6 +47,7 @@ export interface IShop extends Document {
 
 const ShopSchema = new Schema<IShop>(
   {
+    _id: { type: String },
     name: { type: String, required: true, trim: true },
     ownerId: { type: String, required: true, index: true },
     address: { type: String, required: true },
