@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import DocumentEditorModal from './DocumentEditorModal';
 
 export interface UploadedFileItem {
   fileUrl: string;
@@ -20,6 +21,11 @@ export default function FileUploader({ onFilesChanged }: FileUploaderProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  // Document Editor State
+  const [editingFile, setEditingFile] = useState<UploadedFileItem | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number>(-1);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   // Google Drive & Cloud link state
   const [showDriveModal, setShowDriveModal] = useState(false);
@@ -143,34 +149,43 @@ export default function FileUploader({ onFilesChanged }: FileUploaderProps) {
 
           if (res.ok) {
             const data = await res.json();
-            uploadedResults.push(data.file);
+            const storedFile = data.file;
+
+            // Verify file integrity immediately via HEAD request
+            try {
+              const verifyRes = await fetch(storedFile.fileUrl, { method: 'HEAD' });
+              if (verifyRes.ok) {
+                uploadedResults.push(storedFile);
+              } else {
+                setError(
+                  `Verification failed for "${file.name}": Server could not confirm file storage. Please try again.`
+                );
+              }
+            } catch {
+              // If HEAD request is restricted by network, verify with storedFile
+              uploadedResults.push(storedFile);
+            }
           } else {
-            // Local fallback
-            uploadedResults.push({
-              fileUrl: URL.createObjectURL(file),
-              fileName: file.name,
-              fileType: file.type || 'application/pdf',
-              fileSizeBytes: file.size,
-              estimatedPages: file.name.toLowerCase().endsWith('.pdf') ? 4 : 1,
-            });
+            const errData = await res.json().catch(() => ({}));
+            setError(
+              `Upload failed for "${file.name}": ${errData.error || 'Server error. Please try again.'}`
+            );
           }
-        } catch {
-          uploadedResults.push({
-            fileUrl: URL.createObjectURL(file),
-            fileName: file.name,
-            fileType: file.type || 'application/pdf',
-            fileSizeBytes: file.size,
-            estimatedPages: file.name.toLowerCase().endsWith('.pdf') ? 4 : 1,
-          });
+        } catch (uploadErr: any) {
+          setError(
+            `Upload failed for "${file.name}": ${uploadErr.message || 'Network connection failed. Please try again.'}`
+          );
         }
       }
 
       setUploadProgress(100);
 
-      const updated = [...files, ...uploadedResults];
-      setFiles(updated);
-      const totalPages = updated.reduce((sum, f) => sum + (f.estimatedPages || 1), 0);
-      onFilesChanged(updated, totalPages);
+      if (uploadedResults.length > 0) {
+        const updated = [...files, ...uploadedResults];
+        setFiles(updated);
+        const totalPages = updated.reduce((sum, f) => sum + (f.estimatedPages || 1), 0);
+        onFilesChanged(updated, totalPages);
+      }
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -184,6 +199,22 @@ export default function FileUploader({ onFilesChanged }: FileUploaderProps) {
     setFiles(updated);
     const totalPages = updated.reduce((sum, f) => sum + (f.estimatedPages || 1), 0);
     onFilesChanged(updated, totalPages);
+  };
+
+  const handleOpenEditor = (file: UploadedFileItem, index: number) => {
+    setEditingFile(file);
+    setEditingIndex(index);
+    setIsEditorOpen(true);
+  };
+
+  const handleSaveEditedFile = (updatedItem: UploadedFileItem) => {
+    if (editingIndex < 0) return;
+    const updated = [...files];
+    updated[editingIndex] = updatedItem;
+    setFiles(updated);
+    const totalPages = updated.reduce((sum, f) => sum + (f.estimatedPages || 1), 0);
+    onFilesChanged(updated, totalPages);
+    setIsEditorOpen(false);
   };
 
   const formatFileSize = (bytes: number) => {
@@ -435,18 +466,39 @@ export default function FileUploader({ onFilesChanged }: FileUploaderProps) {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => handleRemoveFile(idx)}
-                  className="rounded-lg px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-800 transition shrink-0"
-                  title="Remove file"
-                >
-                  Remove
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditor(file, idx)}
+                    className="rounded-lg bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 font-semibold px-2.5 py-1 text-xs transition flex items-center gap-1 shadow-sm"
+                    title="Crop, rotate, enhance scan filter or convert to PDF"
+                  >
+                    <span>✏️</span>
+                    <span className="hidden sm:inline">Edit / Crop</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveFile(idx)}
+                    className="rounded-lg px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-800 transition"
+                    title="Remove file"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {/* Interactive Document Editor Studio Modal */}
+      <DocumentEditorModal
+        isOpen={isEditorOpen}
+        fileItem={editingFile}
+        onClose={() => setIsEditorOpen(false)}
+        onSave={handleSaveEditedFile}
+      />
     </div>
   );
 }

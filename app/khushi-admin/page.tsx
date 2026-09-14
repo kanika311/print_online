@@ -1317,6 +1317,7 @@ export default function KhushiAdminPage() {
                         <th className="px-4 py-3">Total</th>
                         <th className="px-4 py-3">Fulfillment</th>
                         <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1361,6 +1362,30 @@ export default function KhushiAdminPage() {
                               }`}>
                                 {ord.status}
                               </span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {ord.fileUrl && (
+                                  <a
+                                    href={ord.fileUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 shadow-sm"
+                                  >
+                                    Open File
+                                  </a>
+                                )}
+                                {ord.fileUrl && (
+                                  <button
+                                    onClick={() => window.open(ord.fileUrl, '_blank')}
+                                    className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold px-2.5 py-1 text-[11px] shadow-sm flex items-center gap-1 transition active:scale-95"
+                                    title="Print Document"
+                                  >
+                                    <span>🖨️</span>
+                                    <span>Print</span>
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}

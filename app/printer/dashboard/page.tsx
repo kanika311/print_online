@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '@/lib/socket';
@@ -109,6 +109,19 @@ export default function PrinterDashboardPage() {
   // Subscription Plans
   const [availablePlans, setAvailablePlans] = useState<any[]>([]);
   const [updatingPlan, setUpdatingPlan] = useState(false);
+
+  // Hardware Printer Detection & Auto-Print Spooler Engine
+  const [autoPrintEnabled, setAutoPrintEnabled] = useState(true);
+  const [printerStatus, setPrinterStatus] = useState<'CONNECTED' | 'DISCONNECTED' | 'PRINTING' | 'ERROR'>('CONNECTED');
+  const [detectedPrinter, setDetectedPrinter] = useState<{
+    name: string;
+    model: string;
+    connectionType: string;
+    isOnline: boolean;
+  } | null>(null);
+  const [activePrintingOrderId, setActivePrintingOrderId] = useState<string | null>(null);
+  const [hiddenPrintUrl, setHiddenPrintUrl] = useState<string | null>(null);
+  const hiddenIframeRef = useRef<HTMLIFrameElement | null>(null);
 
   // Link New Printer modal state
   const [showAddPrinterModal, setShowAddPrinterModal] = useState(false);
@@ -339,6 +352,146 @@ export default function PrinterDashboardPage() {
       }
     } catch (e) {
       console.error('Failed to advance order status:', e);
+    }
+  };
+
+  // Auto-detect connected hardware printers from fleet or WebUSB
+  useEffect(() => {
+    const detectConnectedPrinter = async () => {
+      // 1. Check for physical WebUSB printer if browser supports it
+      if (typeof navigator !== 'undefined' && (navigator as any).usb) {
+        try {
+          const usbDevices = await (navigator as any).usb.getDevices();
+          if (usbDevices && usbDevices.length > 0) {
+            const dev = usbDevices[0];
+            const devName = dev.productName || 'USB Thermal/Laser Printer';
+            setDetectedPrinter({
+              name: devName,
+              model: `USB Vendor 0x${dev.vendorId.toString(16)}`,
+              connectionType: 'USB Direct Plugged-in',
+              isOnline: true,
+            });
+            setPrinterStatus('CONNECTED');
+            return;
+          }
+        } catch {}
+      }
+
+      // 2. Check shop fleet machines
+      if (printers && printers.length > 0) {
+        const active =
+          printers.find((p) => p.status === 'AVAILABLE' || p.status === 'BUSY') ||
+          printers[0];
+        setDetectedPrinter({
+          name: active.name,
+          model: active.model || 'Commercial Digital Spooler',
+          connectionType:
+            active.connectionType === 'USB_PORT'
+              ? `USB (${active.usbPort || 'USB001'})`
+              : `Network IP (${active.ipAddress || '192.168.1.105'})`,
+          isOnline: active.status !== 'OFFLINE',
+        });
+        setPrinterStatus(active.status === 'OFFLINE' ? 'DISCONNECTED' : 'CONNECTED');
+      } else {
+        setDetectedPrinter(null);
+        setPrinterStatus('DISCONNECTED');
+      }
+    };
+
+    detectConnectedPrinter();
+  }, [printers]);
+
+  // Automated or Manual Print Job Dispatch
+  const executePrintJob = async (order: any, isAuto: boolean = false) => {
+    if (!detectedPrinter || !detectedPrinter.isOnline) {
+      setPrinterStatus('DISCONNECTED');
+      showNotification('⚠️ No printer connected! Please connect a machine before printing.');
+      return;
+    }
+
+    try {
+      const orderId = order._id || order.id;
+      setActivePrintingOrderId(orderId);
+      setPrinterStatus('PRINTING');
+
+      if (isAuto) {
+        showNotification(`⚡ Auto-printing #${order.orderNumber} via ${detectedPrinter.name}...`);
+      } else {
+        showNotification(`🖨️ Spooling #${order.orderNumber} to ${detectedPrinter.name}...`);
+      }
+
+      // 1. Move to PRINTING status if QUEUED or PENDING
+      if (order.status !== 'PRINTING') {
+        await handleUpdateOrderStatus(orderId, 'PRINTING');
+      }
+
+      // 2. Trigger browser print spooler
+      if (order.fileUrl) {
+        setHiddenPrintUrl(order.fileUrl);
+        setTimeout(() => {
+          try {
+            if (hiddenIframeRef.current?.contentWindow) {
+              hiddenIframeRef.current.contentWindow.focus();
+              hiddenIframeRef.current.contentWindow.print();
+            } else {
+              window.open(order.fileUrl, '_blank');
+            }
+          } catch {
+            window.open(order.fileUrl, '_blank');
+          }
+        }, 600);
+      }
+
+      // 3. Auto-advance to READY after job prints
+      const waitTimeMs = Math.max(5000, (order.pageCount || 1) * (order.copies || 1) * 1500);
+      setTimeout(async () => {
+        await handleUpdateOrderStatus(orderId, 'READY');
+        setActivePrintingOrderId(null);
+        setPrinterStatus('CONNECTED');
+        showNotification(`✓ #${order.orderNumber} printed & marked READY!`);
+      }, waitTimeMs);
+    } catch (err: any) {
+      console.error('Print execution error:', err);
+      setPrinterStatus('ERROR');
+      setActivePrintingOrderId(null);
+      showNotification(`⚠️ Print failed for #${order.orderNumber}. Use manual Print Now button.`);
+    }
+  };
+
+  // When autoPrintEnabled is ON and a printer is CONNECTED, automatically process any QUEUED order
+  useEffect(() => {
+    if (!autoPrintEnabled || printerStatus !== 'CONNECTED' || activePrintingOrderId) {
+      return;
+    }
+
+    const nextQueuedOrder = orders.find((o) => o.status === 'QUEUED');
+    if (nextQueuedOrder) {
+      executePrintJob(nextQueuedOrder, true);
+    }
+  }, [orders, autoPrintEnabled, printerStatus, activePrintingOrderId]);
+
+  // Request & connect local USB printer via WebUSB API
+  const handleConnectUsbPrinter = async () => {
+    if (typeof navigator !== 'undefined' && (navigator as any).usb) {
+      try {
+        const device = await (navigator as any).usb.requestDevice({ filters: [] });
+        if (device) {
+          setDetectedPrinter({
+            name: device.productName || 'Connected USB Printer',
+            model: `USB Device (Vendor ID: 0x${device.vendorId.toString(16)})`,
+            connectionType: 'USB Direct Plugged-in',
+            isOnline: true,
+          });
+          setPrinterStatus('CONNECTED');
+          showNotification(`🔌 Connected USB Printer: ${device.productName || 'Hardware Ready'}`);
+        }
+      } catch (e: any) {
+        if (e.name !== 'NotFoundError') {
+          showNotification(`USB connection: ${e.message || 'Cancelled'}`);
+        }
+      }
+    } else {
+      showNotification('WebUSB not supported on this browser. Using Network IP fleet.');
     }
   };
 
@@ -1025,6 +1178,97 @@ export default function PrinterDashboardPage() {
 
               {/* Spooler Print Queue Table */}
               <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                {/* Hardware Printer Status & Auto-Print Banner */}
+                <div className={`p-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                  printerStatus === 'PRINTING'
+                    ? 'bg-amber-50/80 border-amber-200'
+                    : printerStatus === 'CONNECTED'
+                    ? 'bg-emerald-50/70 border-emerald-200'
+                    : printerStatus === 'ERROR'
+                    ? 'bg-rose-50 border-rose-200'
+                    : 'bg-slate-100 border-slate-200'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`h-3 w-3 rounded-full shrink-0 ${
+                      printerStatus === 'PRINTING'
+                        ? 'bg-amber-500 animate-pulse'
+                        : printerStatus === 'CONNECTED'
+                        ? 'bg-emerald-500'
+                        : printerStatus === 'ERROR'
+                        ? 'bg-rose-500'
+                        : 'bg-slate-400'
+                    }`} />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-heading text-xs sm:text-sm font-bold text-slate-900">
+                          {printerStatus === 'CONNECTED' && detectedPrinter
+                            ? `Printing via: ${detectedPrinter.name}`
+                            : printerStatus === 'PRINTING'
+                            ? `Printing via: ${detectedPrinter?.name || 'Active Spooler'}`
+                            : printerStatus === 'ERROR'
+                            ? 'Print Error — Manual fallback available'
+                            : 'No printer connected'}
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          printerStatus === 'PRINTING'
+                            ? 'bg-amber-100 text-amber-800'
+                            : printerStatus === 'CONNECTED'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : printerStatus === 'ERROR'
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-slate-200 text-slate-700'
+                        }`}>
+                          {printerStatus === 'PRINTING'
+                            ? 'Printing...'
+                            : printerStatus === 'CONNECTED'
+                            ? 'Hardware Online'
+                            : printerStatus === 'ERROR'
+                            ? 'Failed'
+                            : 'Offline'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {printerStatus === 'CONNECTED' && detectedPrinter
+                          ? `Connection: ${detectedPrinter.connectionType} • Automatically spools queued jobs`
+                          : printerStatus === 'PRINTING'
+                          ? `Spooling document to printer • Auto-advancing to ready`
+                          : 'Plug in a USB printer or link a network machine in Connected Fleet below'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Controls: Auto-Print Toggle & Connect USB Button */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleConnectUsbPrinter}
+                      className="rounded-lg bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition flex items-center gap-1.5"
+                      title="Pair a physical USB printer using WebUSB"
+                    >
+                      <span>🔌</span>
+                      <span>Scan USB</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextState = !autoPrintEnabled;
+                        setAutoPrintEnabled(nextState);
+                        showNotification(`Auto-Print mode ${nextState ? 'ACTIVATED' : 'PAUSED'}`);
+                      }}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 shadow-sm ${
+                        autoPrintEnabled
+                          ? 'bg-blue-600 text-white shadow-blue-200'
+                          : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                      }`}
+                      title="Toggle hands-free automatic printing for incoming jobs"
+                    >
+                      <span>⚡ Auto-Print:</span>
+                      <span className="uppercase">{autoPrintEnabled ? 'ON' : 'OFF'}</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="p-4 border-b border-slate-200 flex items-center justify-between">
                   <div>
                     <h3 className="font-heading text-sm font-bold text-slate-900">
@@ -1088,7 +1332,7 @@ export default function PrinterDashboardPage() {
                                 order.status === 'COMPLETED'
                                   ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
                                   : order.status === 'PRINTING'
-                                  ? 'bg-blue-50 text-blue-700 border-blue-300 font-extrabold'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-300 font-extrabold animate-pulse'
                                   : order.status === 'READY'
                                   ? 'bg-teal-50 text-teal-700 border-teal-300'
                                   : 'bg-slate-100 text-slate-700 border-slate-300'
@@ -1111,10 +1355,12 @@ export default function PrinterDashboardPage() {
 
                                 {order.status === 'QUEUED' && (
                                   <button
-                                    onClick={() => handleUpdateOrderStatus(order._id || order.id, 'PRINTING')}
-                                    className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold px-2.5 py-1 text-[11px] shadow-sm"
+                                    onClick={() => executePrintJob(order, false)}
+                                    className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold px-2.5 py-1 text-[11px] shadow-sm flex items-center gap-1 transition active:scale-95"
+                                    title="Manual Print Fallback"
                                   >
-                                    Start Printing
+                                    <span>🖨️</span>
+                                    <span>Print Now</span>
                                   </button>
                                 )}
 
@@ -1213,10 +1459,11 @@ export default function PrinterDashboardPage() {
                           )}
                           {order.status === 'QUEUED' && (
                             <button
-                              onClick={() => handleUpdateOrderStatus(order._id || order.id, 'PRINTING')}
-                              className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 text-xs shadow-sm"
+                              onClick={() => executePrintJob(order, false)}
+                              className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 text-xs shadow-sm flex items-center justify-center gap-1 transition active:scale-95"
                             >
-                              Start Printing
+                              <span>🖨️</span>
+                              <span>Print Now</span>
                             </button>
                           )}
                           {order.status === 'PRINTING' && (
@@ -3444,6 +3691,17 @@ export default function PrinterDashboardPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Hidden print spooler iframe for automated & background printing */}
+      {hiddenPrintUrl && (
+        <iframe
+          ref={hiddenIframeRef}
+          src={hiddenPrintUrl}
+          title="PrintPorter Document Spooler"
+          className="hidden"
+          style={{ position: 'fixed', right: '100%', bottom: '100%', width: 0, height: 0, border: 0 }}
+        />
       )}
     </div>
   );
