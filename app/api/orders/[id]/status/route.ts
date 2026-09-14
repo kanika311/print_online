@@ -33,9 +33,25 @@ export async function PATCH(
 
     const newStatus = parsed.data.status;
 
-    let order = memoryStore.orders.find(
-      (o) => o._id.toString() === orderId || o.orderNumber === orderId
-    );
+    let order: any = null;
+    let isMongoDoc = false;
+
+    if (!isFallback) {
+      try {
+        order = await Order.findOne({
+          $or: [{ _id: orderId }, { orderNumber: orderId }],
+        });
+        if (order) isMongoDoc = true;
+      } catch (err) {
+        console.warn('MongoDB order lookup failed in status route:', err);
+      }
+    }
+
+    if (!order) {
+      order = memoryStore.orders.find(
+        (o) => o._id.toString() === orderId || o.orderNumber === orderId
+      );
+    }
 
     if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
@@ -82,16 +98,34 @@ export async function PATCH(
     }
 
     // Persist to MongoDB if active
-    if (!isFallback) {
+    if (isMongoDoc && typeof order.save === 'function') {
+      await order.save();
+    } else if (!isFallback) {
       try {
-        await Order.findByIdAndUpdate(order._id, {
-          status: newStatus,
-          startedPrintingAt: order.startedPrintingAt,
-          completedAt: order.completedAt,
-        });
+        await Order.findOneAndUpdate(
+          { $or: [{ _id: orderId }, { orderNumber: orderId }] },
+          {
+            $set: {
+              status: newStatus,
+              startedPrintingAt: order.startedPrintingAt,
+              completedAt: order.completedAt,
+              updatedAt: order.updatedAt,
+            },
+          }
+        );
       } catch (err) {
         console.warn('DB update error, persisted in memory:', err);
       }
+    }
+
+    const orderObj = typeof order.toObject === 'function' ? order.toObject() : order;
+    const memIdx = memoryStore.orders.findIndex(
+      (o) => o._id.toString() === orderId || o.orderNumber === orderId
+    );
+    if (memIdx >= 0) {
+      memoryStore.orders[memIdx] = orderObj;
+    } else {
+      memoryStore.orders.unshift(orderObj);
     }
 
     const eventPayload = {
@@ -112,7 +146,7 @@ export async function PATCH(
     return NextResponse.json({
       success: true,
       message: `Order status updated to ${newStatus}`,
-      order,
+      order: orderObj,
     });
   } catch (error: any) {
     return NextResponse.json(

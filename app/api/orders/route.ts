@@ -213,9 +213,15 @@ export async function POST(req: NextRequest) {
     if (!isFallback) {
       try {
         await Order.create(newOrder);
-      } catch {
-        memoryStore.orders.unshift(newOrder);
+      } catch (err) {
+        console.warn('MongoDB order create failed, relying on memoryStore:', err);
       }
+    }
+
+    // Always keep memoryStore in sync
+    const existingIdx = memoryStore.orders.findIndex((o) => o._id === newOrder._id);
+    if (existingIdx >= 0) {
+      memoryStore.orders[existingIdx] = newOrder;
     } else {
       memoryStore.orders.unshift(newOrder);
     }

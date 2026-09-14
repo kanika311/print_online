@@ -15,9 +15,11 @@ export async function GET(
     let order: any = null;
     if (!isFallback) {
       try {
-        order = await Order.findById(orderId).lean();
-      } catch {
-        // use memory store
+        order = await Order.findOne({
+          $or: [{ _id: orderId }, { orderNumber: orderId }],
+        }).lean();
+      } catch (err) {
+        console.warn('MongoDB order query error:', err);
       }
     }
 
@@ -37,13 +39,29 @@ export async function GET(
     let pendingPagesAhead = 0;
 
     if (['PENDING', 'QUEUED', 'PRINTING'].includes(order.status)) {
-      const activeOrdersForPrinter = memoryStore.orders.filter(
-        (o) =>
-          o.printerId === order.printerId &&
-          ['QUEUED', 'PRINTING'].includes(o.status) &&
-          new Date(o.createdAt).getTime() < new Date(order.createdAt).getTime() &&
-          o._id.toString() !== order._id.toString()
-      );
+      let activeOrdersForPrinter: any[] = [];
+      if (!isFallback) {
+        try {
+          activeOrdersForPrinter = await Order.find({
+            printerId: order.printerId,
+            status: { $in: ['QUEUED', 'PRINTING'] },
+            createdAt: { $lt: new Date(order.createdAt) },
+            _id: { $ne: order._id },
+          }).lean();
+        } catch {
+          activeOrdersForPrinter = [];
+        }
+      }
+
+      if (activeOrdersForPrinter.length === 0) {
+        activeOrdersForPrinter = memoryStore.orders.filter(
+          (o) =>
+            o.printerId === order.printerId &&
+            ['QUEUED', 'PRINTING'].includes(o.status) &&
+            new Date(o.createdAt).getTime() < new Date(order.createdAt).getTime() &&
+            o._id.toString() !== order._id.toString()
+        );
+      }
 
       queueAheadCount = activeOrdersForPrinter.length;
       pendingPagesAhead = activeOrdersForPrinter.reduce(
@@ -52,9 +70,17 @@ export async function GET(
       );
     }
 
-    const printer = memoryStore.printers.find(
-      (p) => p._id.toString() === order.printerId
-    );
+    let printer: any = null;
+    if (!isFallback) {
+      try {
+        printer = await Printer.findById(order.printerId).lean();
+      } catch {}
+    }
+    if (!printer) {
+      printer = memoryStore.printers.find(
+        (p) => p._id.toString() === order.printerId
+      );
+    }
 
     const estimate = calculateQueueEstimate({
       queueAheadCount,

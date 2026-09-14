@@ -15,9 +15,27 @@ export async function POST(
 
     const { fulfillmentType, deliveryAddress, recipientPhone } = body;
 
-    let order = memoryStore.orders.find(
-      (o) => o._id.toString() === orderId || o.orderNumber === orderId
-    );
+    let order: any = null;
+    let isMongoDoc = false;
+
+    if (!isFallback) {
+      try {
+        order = await Order.findOne({
+          $or: [{ _id: orderId }, { orderNumber: orderId }],
+        });
+        if (order) {
+          isMongoDoc = true;
+        }
+      } catch (err) {
+        console.warn('MongoDB order lookup failed in fulfillment route:', err);
+      }
+    }
+
+    if (!order) {
+      order = memoryStore.orders.find(
+        (o) => o._id.toString() === orderId || o.orderNumber === orderId
+      );
+    }
 
     if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
@@ -37,10 +55,14 @@ export async function POST(
       order.deliveryFee = 40.0;
       order.deliveryEstimatedMinutes = 25;
 
+      if (!order.breakdown) {
+        order.breakdown = {} as any;
+      }
+
       // Add delivery fee to breakdown if not already added
       if (!order.breakdown.deliveryFee) {
         order.breakdown.deliveryFee = 40.0;
-        order.totalPrice = +(order.totalPrice + 40.0).toFixed(2);
+        order.totalPrice = +(Number(order.totalPrice || 0) + 40.0).toFixed(2);
       }
 
       // Initialize DeliveryOrder record for Porter
@@ -71,6 +93,14 @@ export async function POST(
         updatedAt: new Date(),
       };
 
+      if (!isFallback) {
+        try {
+          await DeliveryOrder.create(deliveryRecord);
+        } catch (e) {
+          console.warn('DeliveryOrder insert error:', e);
+        }
+      }
+
       if (!global.memoryStore!.deliveryOrders) {
         global.memoryStore!.deliveryOrders = [];
       }
@@ -81,6 +111,41 @@ export async function POST(
     }
 
     order.updatedAt = new Date();
+
+    if (isMongoDoc && typeof order.save === 'function') {
+      await order.save();
+    } else if (!isFallback) {
+      try {
+        await Order.findOneAndUpdate(
+          { $or: [{ _id: orderId }, { orderNumber: orderId }] },
+          {
+            $set: {
+              fulfillmentType: order.fulfillmentType,
+              deliveryAddress: order.deliveryAddress,
+              deliveryFee: order.deliveryFee,
+              deliveryEstimatedMinutes: order.deliveryEstimatedMinutes,
+              totalPrice: order.totalPrice,
+              'breakdown.deliveryFee': order.breakdown?.deliveryFee,
+              updatedAt: order.updatedAt,
+            },
+          }
+        );
+      } catch (err) {
+        console.warn('Order DB update error in fulfillment:', err);
+      }
+    }
+
+    const orderObj = typeof order.toObject === 'function' ? order.toObject() : order;
+
+    // Update in-memory store as well
+    const memIdx = memoryStore.orders.findIndex(
+      (o) => o._id.toString() === orderId || o.orderNumber === orderId
+    );
+    if (memIdx >= 0) {
+      memoryStore.orders[memIdx] = orderObj;
+    } else {
+      memoryStore.orders.unshift(orderObj);
+    }
 
     const eventPayload = {
       orderId: order._id,
@@ -96,7 +161,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       message: `Fulfillment method set to ${fulfillmentType}`,
-      order,
+      order: orderObj,
     });
   } catch (error: any) {
     console.error('Fulfillment update error:', error);

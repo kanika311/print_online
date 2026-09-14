@@ -115,6 +115,7 @@ export default function ShopDetailPage() {
       return;
     }
 
+    setError(null);
     setSubmitting(true);
 
     try {
@@ -180,8 +181,10 @@ export default function ShopDetailPage() {
     if (!createdOrder) return;
 
     try {
+      setError(null);
       setSubmitting(true);
-      const res = await fetch(`/api/orders/${createdOrder._id}/fulfillment`, {
+      const targetId = createdOrder._id || createdOrder.orderNumber;
+      const res = await fetch(`/api/orders/${targetId}/fulfillment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -196,7 +199,7 @@ export default function ShopDetailPage() {
         throw new Error(d.error || 'Failed to update delivery choice');
       }
 
-      router.push(`/order/${createdOrder._id}`);
+      router.push(`/order/${targetId}`);
     } catch (e: any) {
       setError(e.message || 'Failed to set fulfillment');
       setSubmitting(false);

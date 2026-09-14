@@ -21,9 +21,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
     }
 
-    let order = memoryStore.orders.find(
-      (o) => o._id.toString() === orderId || o.orderNumber === orderId
-    );
+    let order: any = null;
+    let isMongoDoc = false;
+
+    if (!isFallback) {
+      try {
+        order = await Order.findOne({
+          $or: [{ _id: orderId }, { orderNumber: orderId }],
+        });
+        if (order) isMongoDoc = true;
+      } catch (err) {
+        console.warn('MongoDB order lookup failed in razorpay verify:', err);
+      }
+    }
+
+    if (!order) {
+      order = memoryStore.orders.find(
+        (o) => o._id.toString() === orderId || o.orderNumber === orderId
+      );
+    }
 
     if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
@@ -72,19 +88,44 @@ export async function POST(req: NextRequest) {
       shop.onlineCollected = (shop.onlineCollected || 0) + order.totalPrice;
     }
 
-    if (!isFallback) {
+    if (isMongoDoc && typeof order.save === 'function') {
+      await order.save();
+    } else if (!isFallback) {
       try {
-        await Order.findByIdAndUpdate(order._id, {
-          paymentStatus: 'PAID',
-          status: 'QUEUED',
-          razorpayOrderId: order.razorpayOrderId,
-          razorpayPaymentId: order.razorpayPaymentId,
-          approvedAt: order.approvedAt,
-        });
-        await Payment.create(paymentRecord);
+        await Order.findOneAndUpdate(
+          { $or: [{ _id: orderId }, { orderNumber: orderId }] },
+          {
+            $set: {
+              paymentStatus: 'PAID',
+              status: 'QUEUED',
+              razorpayOrderId: order.razorpayOrderId,
+              razorpayPaymentId: order.razorpayPaymentId,
+              approvedAt: order.approvedAt,
+              updatedAt: order.updatedAt,
+            },
+          }
+        );
       } catch (err) {
         console.warn('DB update error in razorpay verify:', err);
       }
+    }
+
+    if (!isFallback) {
+      try {
+        await Payment.create(paymentRecord);
+      } catch (err) {
+        console.warn('DB payment create error in razorpay verify:', err);
+      }
+    }
+
+    const orderObj = typeof order.toObject === 'function' ? order.toObject() : order;
+    const memIdx = memoryStore.orders.findIndex(
+      (o) => o._id.toString() === orderId || o.orderNumber === orderId
+    );
+    if (memIdx >= 0) {
+      memoryStore.orders[memIdx] = orderObj;
+    } else {
+      memoryStore.orders.unshift(orderObj);
     }
 
     const eventPayload = {
